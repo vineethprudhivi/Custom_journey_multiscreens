@@ -20,7 +20,7 @@
     "arguments": {
         "execute": {
             "inArguments": [],
-            "url": "https://custom-journey-activity-test.vercel.app/execute",
+            "url": "https://custom-journey-multiscreens.vercel.app/execute",
             "verb": "POST",
             "body": "",
             "header": "",
@@ -32,22 +32,22 @@
     "configurationArguments": {
         "applicationExtensionKey": "b43b4e9f-6ebd-4f4c-9649-38bb36b7124b",
         "save": {
-            "url": "https://custom-journey-activity-test.vercel.app/save",
+            "url": "https://custom-journey-multiscreens.vercel.app/save",
             "verb": "POST",
             "useJwt": false
         },
         "publish": {
-            "url": "https://custom-journey-activity-test.vercel.app/publish",
+            "url": "https://custom-journey-multiscreens.vercel.app/publish",
             "verb": "POST",
             "useJwt": false
         },
         "validate": {
-            "url": "https://custom-journey-activity-test.vercel.app/validate",
+            "url": "https://custom-journey-multiscreens.vercel.app/validate",
             "verb": "POST",
             "useJwt": false
         },
         "stop": {
-            "url": "https://custom-journey-activity-test.vercel.app/stop",
+            "url": "https://custom-journey-multiscreens.vercel.app/stop",
             "verb": "POST",
             "useJwt": false
         }
