@@ -150,28 +150,37 @@ function submitWebhookForm() {
         return;
     }
 
-    // Generate GUID client-side (reliable, no server dependency)
-    webhookJobId = UUIDjs.create(4).toString();
-
     $('#webhookStatus').html('<span style="color:#888;">Submitting…</span>');
     $('#btnNext').prop('disabled', true);
 
-    // Fire-and-forget POST to server (saves to DEs if SFMC creds are configured)
+    // Decide endpoint: CloudPage (SFMC-native) or Vercel fallback
+    var useCloudPage = !!CLOUDPAGE_WEBHOOK_URL;
+    var webhookUrl   = useCloudPage ? CLOUDPAGE_WEBHOOK_URL : (BASE_URL + '/webhook/submit');
+
+    // If NOT using CloudPage, generate GUID client-side as fallback
+    if (!useCloudPage) {
+        webhookJobId = UUIDjs.create(4).toString();
+        formData.jobId = webhookJobId;
+    }
+
     $.ajax({
-        url: BASE_URL + '/webhook/submit',
+        url: webhookUrl,
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify($.extend({}, formData, { jobId: webhookJobId })),
-        timeout: 8000,
+        data: JSON.stringify(formData),
+        timeout: 12000,
         success: function (res) {
-            // If server returned its own jobId, prefer it
+            // CloudPage / server returns the GUID
             if (res && res.success && res.jobId) {
                 webhookJobId = res.jobId;
             }
             showWebhookSuccess(res);
         },
         error: function () {
-            // Server unreachable / creds missing – still proceed with client GUID
+            // Server unreachable – generate client GUID as last resort
+            if (!webhookJobId) {
+                webhookJobId = UUIDjs.create(4).toString();
+            }
             console.warn('Webhook POST failed – using client-generated GUID');
             showWebhookSuccess(null);
         }
