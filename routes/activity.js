@@ -202,26 +202,32 @@ exports.webhookSubmit = async function (req, res) {
                     responseType: 'text'
                 });
 
-                console.log('CloudPage raw response (first 300 chars):', String(cpResponse.data).substring(0, 300));
+                console.log('CloudPage raw response type:', typeof cpResponse.data);
 
-                // Sanity check: if response contains Node.js code, the CloudPage URL is wrong
-                const rawData = String(cpResponse.data);
-                if (rawData.includes("'use strict'") || rawData.includes('require("axios")') || rawData.includes('exports.')) {
-                    console.error('CloudPage returned server-side JS code – the CLOUDPAGE_WEBHOOK_URL is pointing to the wrong resource!');
-                    return res.status(500).json({
-                        success: false,
-                        error: 'CloudPage returned server code instead of JSON. Check that CLOUDPAGE_WEBHOOK_URL points to your SFMC JSON Code Resource (with the SSJS webhook code), not to the Vercel app or wrong page.'
-                    });
-                }
-
-                // CloudPage SSJS may wrap JSON in HTML tags – strip them
-                let rawText = rawData.replace(/<[^>]*>/g, '').trim();
-
-                // Parse if still a string
+                // If axios already parsed JSON, use it directly
                 let parsed;
-                try { parsed = JSON.parse(rawText); } catch (pe) {
-                    console.error('Failed to parse CloudPage response as JSON:', rawText.substring(0, 500));
-                    parsed = null;
+                if (typeof cpResponse.data === 'object' && cpResponse.data !== null) {
+                    parsed = cpResponse.data;
+                } else {
+                    const rawData = String(cpResponse.data);
+                    console.log('CloudPage raw response (first 300 chars):', rawData.substring(0, 300));
+
+                    // Sanity check: if response contains Node.js code, the CloudPage URL is wrong
+                    if (rawData.includes("'use strict'") || rawData.includes('require("axios")') || rawData.includes('exports.')) {
+                        console.error('CloudPage returned server-side JS code – the CLOUDPAGE_WEBHOOK_URL is pointing to the wrong resource!');
+                        return res.status(500).json({
+                            success: false,
+                            error: 'CloudPage returned server code instead of JSON. Check that CLOUDPAGE_WEBHOOK_URL points to your SFMC JSON Code Resource (with the SSJS webhook code), not to the Vercel app or wrong page.'
+                        });
+                    }
+
+                    // CloudPage SSJS may wrap JSON in HTML tags – strip them
+                    let rawText = rawData.replace(/<[^>]*>/g, '').trim();
+
+                    try { parsed = JSON.parse(rawText); } catch (pe) {
+                        console.error('Failed to parse CloudPage response as JSON:', rawText.substring(0, 500));
+                        parsed = null;
+                    }
                 }
 
                 console.log('CloudPage parsed response:', JSON.stringify(parsed));
