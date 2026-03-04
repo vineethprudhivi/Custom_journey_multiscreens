@@ -229,74 +229,20 @@ exports.webhookSubmit = async function (req, res) {
                 // Forward CloudPage response directly to client
                 if (parsed && parsed.success && parsed.jobId) {
                     return res.status(200).json(parsed);
+                } else if (parsed) {
+                    // CloudPage returned a response but missing jobId or not success
+                    return res.status(200).json(parsed);
                 } else {
-                    // CloudPage returned an error – fall through to REST API fallback
-                    console.warn('CloudPage returned error or missing jobId, falling back to REST API:', parsed);
+                    return res.status(500).json({ success: false, error: 'CloudPage returned unparseable response.' });
                 }
             } catch (cpErr) {
                 console.error('CloudPage proxy failed:', cpErr.message);
-                // Fall through to REST API fallback
+                return res.status(500).json({ success: false, error: 'CloudPage call failed: ' + cpErr.message });
             }
         }
 
-        // ── Strategy 2: Direct REST API (fallback) ──────────────
-        const jobId = clientJobId;
-
-        const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
-                               (process.env.CLIENT_SECRET || process.env.clientSecret) &&
-                               subdomain;
-
-        const saveStatus = { webhookDE: null, jobTrackingDE: null };
-
-        if (hasCredentials) {
-            const token = await retrieveToken();
-
-            const webhookDEKey = process.env.WEBHOOK_DE_KEY || 'WebhookData_DE';
-            try {
-                await upsertDataExtensionRow(token, webhookDEKey, 'email', {
-                    email,
-                    firstname: firstname || '',
-                    lastname: lastname || '',
-                    phone: phone || '',
-                    country: country || '',
-                    jobId
-                });
-                console.log(`Webhook form data saved to DE '${webhookDEKey}' for ${email}`);
-                saveStatus.webhookDE = 'ok';
-            } catch (err) {
-                const errMsg = err.response ? JSON.stringify(err.response.data) : err.message;
-                console.error('Failed to save webhook form data:', errMsg);
-                saveStatus.webhookDE = errMsg;
-            }
-
-            const jobTrackingDEKey = process.env.JOB_TRACKING_DE_KEY || 'JobTracking_DE';
-            const now = new Date();
-            const sfmcDate = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear() + ' ' +
-                             ((now.getHours() % 12) || 12) + ':' +
-                             String(now.getMinutes()).padStart(2, '0') + ':' +
-                             String(now.getSeconds()).padStart(2, '0') + ' ' +
-                             (now.getHours() >= 12 ? 'PM' : 'AM');
-            try {
-                await upsertDataExtensionRow(token, jobTrackingDEKey, 'jobId', {
-                    jobId,
-                    email,
-                    status: 'submitted',
-                    createdDate: sfmcDate
-                });
-                console.log(`Job tracking saved to DE '${jobTrackingDEKey}' with jobId=${jobId}`);
-                saveStatus.jobTrackingDE = 'ok';
-            } catch (err) {
-                const errMsg = err.response ? JSON.stringify(err.response.data) : err.message;
-                console.error(`Failed to save to Job Tracking DE:`, errMsg);
-                saveStatus.jobTrackingDE = errMsg;
-            }
-        } else {
-            console.log(`[Mock] No SFMC credentials – skipping DE writes. Job ID: ${jobId}`);
-            saveStatus.webhookDE = 'skipped (no creds)';
-            saveStatus.jobTrackingDE = 'skipped (no creds)';
-        }
-
-        return res.status(200).json({ success: true, jobId, saveStatus });
+        // No CloudPage URL configured
+        return res.status(400).json({ success: false, error: 'CLOUDPAGE_WEBHOOK_URL environment variable is not set.' });
     } catch (error) {
         console.error('webhookSubmit error:', error.response ? error.response.data : error.message);
         return res.status(500).json({ success: false, error: error.message });
