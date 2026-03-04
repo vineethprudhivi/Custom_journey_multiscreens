@@ -32,6 +32,10 @@ $(window).ready(function () {
 connection.on('initActivity', function (data) {
     if (data) { payload = data; }
     hydrateFromExistingPayload();
+    // Re-request schema after JB is fully initialized (more reliable)
+    if (!schema || schema.length === 0) {
+        connection.trigger('requestSchema');
+    }
     showStep(1);
 });
 
@@ -98,6 +102,11 @@ window.navigateBack = navigateBack;
 function goToStep(num) {
     currentStep = num;
     showStep(num);
+
+    if (num === 2 && (!schema || schema.length === 0)) {
+        // Schema still empty – re-request from JB
+        connection.trigger('requestSchema');
+    }
 
     if (num === 3) {
         fetchPreviewRecords();
