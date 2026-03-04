@@ -172,12 +172,9 @@ async function saveToDatabase() {
 
 /**
  * POST /webhook/submit
- * Simulates a CloudPage → JS Code Resource webhook.
- *   1. Receives form data (firstname, lastname, email, phone, country).
- *   2. Saves it to a "Webhook Data" DE (env: WEBHOOK_DE_KEY).
- *   3. Generates a GUID job ID.
- *   4. Saves the GUID to a "Job Tracking" DE (env: JOB_TRACKING_DE_KEY).
- *   5. Returns the GUID to the caller.
+ * Proxies the form data to the CloudPage JSON Code Resource (if configured),
+ * which generates a GUID and saves directly to DEs inside SFMC.
+ * Falls back to REST API upsert if no CloudPage URL is set.
  */
 exports.webhookSubmit = async function (req, res) {
     try {
@@ -187,18 +184,49 @@ exports.webhookSubmit = async function (req, res) {
             return res.status(400).json({ success: false, error: 'Email is required.' });
         }
 
-        // Use client-provided GUID if available, otherwise generate server-side
+        // ── Strategy 1: Proxy to CloudPage (preferred) ──────────
+        const cloudPageUrl = (process.env.CLOUDPAGE_WEBHOOK_URL || '').trim();
+        if (cloudPageUrl) {
+            console.log('Proxying webhook to CloudPage:', cloudPageUrl);
+            try {
+                const cpResponse = await axios.post(cloudPageUrl, {
+                    firstname: firstname || '',
+                    lastname: lastname || '',
+                    email,
+                    phone: phone || '',
+                    country: country || ''
+                }, {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 10000
+                });
+
+                console.log('CloudPage response:', JSON.stringify(cpResponse.data));
+
+                // Forward CloudPage response directly to client
+                if (cpResponse.data && cpResponse.data.success) {
+                    return res.status(200).json(cpResponse.data);
+                } else {
+                    // CloudPage returned an error – fall through to REST API fallback
+                    console.warn('CloudPage returned error, falling back to REST API:', cpResponse.data);
+                }
+            } catch (cpErr) {
+                console.error('CloudPage proxy failed:', cpErr.message);
+                // Fall through to REST API fallback
+            }
+        }
+
+        // ── Strategy 2: Direct REST API (fallback) ──────────────
         const jobId = clientJobId || crypto.randomUUID();
 
-        // Attempt to persist via SFMC REST API if credentials are configured
         const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
                                (process.env.CLIENT_SECRET || process.env.clientSecret) &&
                                subdomain;
 
+        const saveStatus = { webhookDE: null, jobTrackingDE: null };
+
         if (hasCredentials) {
             const token = await retrieveToken();
 
-            // 1. Save webhook form data to the Webhook DE
             const webhookDEKey = process.env.WEBHOOK_DE_KEY || 'WebhookData_DE';
             try {
                 await upsertDataExtensionRow(token, webhookDEKey, 'email', {
@@ -210,29 +238,41 @@ exports.webhookSubmit = async function (req, res) {
                     jobId
                 });
                 console.log(`Webhook form data saved to DE '${webhookDEKey}' for ${email}`);
+                saveStatus.webhookDE = 'ok';
             } catch (err) {
-                console.error('Failed to save webhook form data:', err.response ? err.response.data : err.message);
+                const errMsg = err.response ? JSON.stringify(err.response.data) : err.message;
+                console.error('Failed to save webhook form data:', errMsg);
+                saveStatus.webhookDE = errMsg;
             }
 
-            // 2. Save the GUID in the Job Tracking DE (independent try/catch)
             const jobTrackingDEKey = process.env.JOB_TRACKING_DE_KEY || 'JobTracking_DE';
+            const now = new Date();
+            const sfmcDate = (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear() + ' ' +
+                             ((now.getHours() % 12) || 12) + ':' +
+                             String(now.getMinutes()).padStart(2, '0') + ':' +
+                             String(now.getSeconds()).padStart(2, '0') + ' ' +
+                             (now.getHours() >= 12 ? 'PM' : 'AM');
             try {
                 await upsertDataExtensionRow(token, jobTrackingDEKey, 'jobId', {
                     jobId,
                     email,
                     status: 'submitted',
-                    createdDate: new Date().toISOString()
+                    createdDate: sfmcDate
                 });
                 console.log(`Job tracking saved to DE '${jobTrackingDEKey}' with jobId=${jobId}`);
+                saveStatus.jobTrackingDE = 'ok';
             } catch (err) {
-                console.error(`Failed to save to Job Tracking DE '${jobTrackingDEKey}':`, err.response ? JSON.stringify(err.response.data) : err.message);
-                console.error('Make sure the DE exists with fields: jobId (PK, Text 50), email (Text 254), status (Text 50), createdDate (Text 50)');
+                const errMsg = err.response ? JSON.stringify(err.response.data) : err.message;
+                console.error(`Failed to save to Job Tracking DE:`, errMsg);
+                saveStatus.jobTrackingDE = errMsg;
             }
         } else {
-            console.log(`[Mock] No SFMC credentials – skipping DE writes. Generated Job ID: ${jobId}`);
+            console.log(`[Mock] No SFMC credentials – skipping DE writes. Job ID: ${jobId}`);
+            saveStatus.webhookDE = 'skipped (no creds)';
+            saveStatus.jobTrackingDE = 'skipped (no creds)';
         }
 
-        return res.status(200).json({ success: true, jobId });
+        return res.status(200).json({ success: true, jobId, saveStatus });
     } catch (error) {
         console.error('webhookSubmit error:', error.response ? error.response.data : error.message);
         return res.status(500).json({ success: false, error: error.message });

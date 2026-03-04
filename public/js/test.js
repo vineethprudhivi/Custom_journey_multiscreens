@@ -20,10 +20,6 @@ var entryDeKey   = null;
 // Base URL for API calls (same origin as iframe)
 var BASE_URL = [location.protocol, '//', location.host].join('');
 
-// CloudPage JSON Code Resource URL for webhook (generates GUID server-side in SFMC)
-// After publishing your CloudPage, paste the URL here:
-var CLOUDPAGE_WEBHOOK_URL = 'https://mc4by0xw84s11pznjgq1c45n7qr0.pub.sfmc-content.com/cr4i4iowdxe'; // e.g. 'https://cloud.s50.exacttarget.com/xxx'
-
 // ─── Bootstrap ───────────────────────────────────────────────────────
 $(window).ready(function () {
     connection.trigger('ready');          // stop JB loading spinner
@@ -153,34 +149,23 @@ function submitWebhookForm() {
     $('#webhookStatus').html('<span style="color:#888;">Submitting…</span>');
     $('#btnNext').prop('disabled', true);
 
-    // Decide endpoint: CloudPage (SFMC-native) or Vercel fallback
-    var useCloudPage = !!CLOUDPAGE_WEBHOOK_URL;
-    var webhookUrl   = useCloudPage ? CLOUDPAGE_WEBHOOK_URL : (BASE_URL + '/webhook/submit');
-
-    // If NOT using CloudPage, generate GUID client-side as fallback
-    if (!useCloudPage) {
-        webhookJobId = UUIDjs.create(4).toString();
-        formData.jobId = webhookJobId;
-    }
-
+    // Always POST to Vercel /webhook/submit (same origin = no CORS)
+    // Server proxies to CloudPage if CLOUDPAGE_WEBHOOK_URL env var is set
     $.ajax({
-        url: webhookUrl,
+        url: BASE_URL + '/webhook/submit',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(formData),
-        timeout: 12000,
+        timeout: 15000,
         success: function (res) {
-            // CloudPage / server returns the GUID
             if (res && res.success && res.jobId) {
                 webhookJobId = res.jobId;
             }
             showWebhookSuccess(res);
         },
         error: function () {
-            // Server unreachable – generate client GUID as last resort
-            if (!webhookJobId) {
-                webhookJobId = UUIDjs.create(4).toString();
-            }
+            // Last resort – client GUID
+            webhookJobId = UUIDjs.create(4).toString();
             console.warn('Webhook POST failed – using client-generated GUID');
             showWebhookSuccess(null);
         }
