@@ -1,109 +1,149 @@
+/* ========== Base ========== */
 body {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Salesforce Sans', 'Roboto', Arial, sans-serif;
     padding: 20px;
     margin: 0;
-    background-color: #f0f2f5;
+    background-color: #f4f6f9;
     color: #333;
+    font-size: 14px;
 }
 
-h1 {
-    font-size: 28px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    color: #333;
-    text-align: center;
-}
-
-form {
-    background: #fff;
-    padding: 30px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    max-width: 600px;
+/* ========== Step containers ========== */
+.step {
+    max-width: 680px;
     margin: 0 auto;
 }
 
-label {
-    font-weight: 500;
-    margin-bottom: 10px;
+h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #032d60;
+}
+
+.step-desc {
+    margin: 0 0 16px;
     color: #555;
+    font-size: 13px;
+    line-height: 1.45;
 }
 
-.radio-group {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 20px;
+.required {
+    color: #c23934;
 }
 
-.radio-group label {
-    display: flex;
-    align-items: center;
-    background: #f9f9f9;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    margin-bottom: 10px;
-    transition: background-color 0.3s ease;
+/* ========== Form controls ========== */
+.form-group {
+    margin-bottom: 12px;
 }
 
-.radio-group label:hover {
-    background-color: #f0f0f0;
+.form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #3e3e3c;
+    font-size: 13px;
 }
 
-.radio-group input[type="radio"] {
-    margin-right: 10px;
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d8dde6;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.form-control:focus {
+    outline: none;
+    border-color: #1589ee;
+    box-shadow: 0 0 3px rgba(21, 137, 238, 0.5);
+}
+
+/* ========== Status area ========== */
+.status-area {
+    margin-top: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 4px;
+    background: #fafaf9;
+    min-height: 20px;
+}
+
+/* ========== Data tables ========== */
+.table-wrap {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid #d8dde6;
+    border-radius: 4px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e5e5;
+    text-align: left;
+}
+
+.data-table thead th {
+    background: #f3f3f3;
+    font-weight: 700;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    color: #032d60;
+}
+
+.data-table tbody tr:hover {
+    background: #f0f7ff;
+}
+
+.empty-msg {
+    text-align: center;
+    color: #888;
+    padding: 20px 10px !important;
+}
+
+/* ========== Misc ========== */
 button {
-    background-color: #007bff;
+    background-color: #0176d3;
     color: #fff;
-    padding: 10px 20px;
+    padding: 8px 20px;
     border: none;
     border-radius: 4px;
-    font-size: 16px;
+    font-size: 14px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
-    display: block;
-    width: 100%;
-    text-align: center;
+    transition: background-color 0.2s;
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: #014486;
 }
 
 #loading-message {
-    font-size: 16px;
+    font-size: 14px;
     color: #888;
     text-align: center;
     margin-bottom: 20px;
 }
 
-#journey-details p {
-    font-size: 1.2em;
-    margin: 0.5em 0;
-}
 .progress-bar {
     width: 100%;
     background-color: #f3f3f3;
     border: 1px solid #ccc;
     border-radius: 5px;
 }
+
 .progress {
     width: 0;
     height: 20px;
     background-color: #4caf50;
     border-radius: 5px;
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
-th, td {
-    padding: 10px;
-    border: 1px solid #ccc;
-}
-th {
-    background-color: #f3f3f3;
 }

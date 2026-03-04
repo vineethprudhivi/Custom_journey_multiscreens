@@ -75,6 +75,10 @@ app.get('/journeys', activity.getJourneys);
 // New route to get activity data by UUID
 app.get('/activity/:uuid', activity.getActivityByUUID);
 
+// ── Multi-screen POC routes ──
+app.post('/webhook/submit', activity.webhookSubmit);
+app.get('/de/records/:deKey', activity.getDeRecords);
+
 // Start server locally, or export for Vercel
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   http.createServer(app).listen(

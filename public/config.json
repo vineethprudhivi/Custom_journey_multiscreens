@@ -11,8 +11,10 @@
     "lang": {
         "en-US": {
             "name": "Vineeth_JourneyCA",
-            "description": "Upserts contact data to destination Data Extension.",
-            "step1Label": "Configure Data Upsert"
+            "description": "Multi-screen custom activity: Webhook form, DE fields, and record preview.",
+            "step1Label": "Webhook Form",
+            "step2Label": "Entry DE Fields",
+            "step3Label": "Preview & Test"
         }
     },
     "arguments": {
@@ -51,9 +53,14 @@
         }
     },
     "userInterfaces": {
+        "configInspector": {
+            "url": "index.html",
+            "height": 650,
+            "width": 750
+        },
         "configModal": {
-            "height": 600,
-            "width": 700,
+            "height": 650,
+            "width": 750,
             "fullscreen": false
         }
     },

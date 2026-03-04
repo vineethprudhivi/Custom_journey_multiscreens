@@ -1,153 +1,281 @@
-// 1. Initialize Postmonger session at the top
-var connection = new Postmonger.Session();
-var payload = {};
-var schema = [];
+/**
+ * Custom Journey Activity – 3-Screen Postmonger Flow
+ * Screen 1: Webhook form (firstname, lastname, email, phone, country)
+ * Screen 2: Display field names from the journey Entry DE
+ * Screen 3: Pull top 2 records from the Entry DE for preview / test
+ */
 
-// 2. Add the window.ready logic to break the loading spinner
-$(window).ready(function() {
-    connection.trigger('ready'); // CRITICAL: This stops the loading spinner
-    connection.trigger('requestSchema'); // Request schema on initialization
+// ─── Postmonger Session ──────────────────────────────────────────────
+var connection = new Postmonger.Session();
+var payload     = {};
+var schema      = [];
+var currentStep = 1;
+var webhookJobId = null;
+var entryDeKey   = null;   // extracted from schema keys
+
+// ─── Bootstrap ───────────────────────────────────────────────────────
+$(window).ready(function () {
+    connection.trigger('ready');          // stop JB loading spinner
+    connection.trigger('requestSchema');  // ask for Entry DE schema
 });
 
-// 3. Your existing initActivity logic
-connection.on('initActivity', function(data) {
-    if (data) { 
-        payload = data; 
-    }
-    // Hydrate existing values if activity was already configured
+// ─── Postmonger Events ──────────────────────────────────────────────
+
+connection.on('initActivity', function (data) {
+    if (data) { payload = data; }
     hydrateFromExistingPayload();
 });
 
-// 4. Handle requestedSchema to get field names
 connection.on('requestedSchema', function (data) {
-    // Validate that schema data exists
     if (!data || !data.schema) {
         console.warn('No schema data received');
         return;
     }
-    
     schema = data.schema;
-    
-    // Populate field checkboxes
-    var $fieldSelection = $('#fieldSelection');
-    $fieldSelection.empty();
-    
-    schema.forEach(function(field) {
-        if (!field || !field.key) {
-            return;
-        }
-        
-        var fieldName = field.name || field.key;
-        var checkbox = $('<div style="margin-bottom: 8px;">' +
-            '<label style="cursor: pointer;">' +
-            '<input type="checkbox" class="field-checkbox" value="' + field.key + '" style="margin-right: 8px;">' +
-            fieldName +
-            '</label>' +
-            '</div>');
-        
-        $fieldSelection.append(checkbox);
-    });
-    
-    // Populate upsert key dropdown
-    var $upsertKey = $('#upsertKey');
-    $upsertKey.find('option').not(':first').remove();
-    
-    schema.forEach(function(field) {
-        if (!field || !field.key) {
-            return;
-        }
-        
-        $upsertKey.append($('<option>', {
-            value: field.key,
-            text: field.name || field.key
-        }));
-    });
-    
-    // Hydrate after populating fields
-    hydrateFromExistingPayload();
-});
 
-function save() {
-    var destDE = ($('#destinationDE').val() || '').trim();
-    var upsertKey = $('#upsertKey').val();
-    
-    // Get all selected fields
-    var selectedFields = {};
-    $('.field-checkbox:checked').each(function() {
-        var fieldKey = $(this).val(); // e.g., "Event.DEKey.email"
-        var fieldName = $(this).parent().text().trim();
-        
-        // Extract the actual field name from the schema key
-        // If fieldKey is "Event.DEKey.email", extract "email"
-        var parts = fieldKey.split('.');
-        var actualFieldName = parts[parts.length - 1];
-        
-        // Store as actualFieldName: "{{Event.DEKey.FieldName}}"
-        selectedFields[actualFieldName] = '{{' + fieldKey + '}}';
-    });
-    
-    // Extract the upsert key field name from its schema key
-    var upsertKeyName = upsertKey;
-    if (upsertKey && upsertKey.indexOf('.') !== -1) {
-        var parts = upsertKey.split('.');
-        upsertKeyName = parts[parts.length - 1];
+    // Derive the Entry DE external key from the first schema key
+    // Key format: "Event.<DEExternalKey>.<FieldName>"
+    if (schema.length > 0 && schema[0].key) {
+        var parts = schema[0].key.split('.');
+        if (parts.length >= 2) {
+            entryDeKey = parts[1];
+        }
     }
 
-    // Initialize payload structure if not exists
-    payload.arguments = payload.arguments || {};
-    payload.arguments.execute = payload.arguments.execute || {};
-    payload.metaData = payload.metaData || {};
+    // Pre-populate Screen 2 field table (available even before user reaches it)
+    populateEntryDeFields(schema);
+});
 
-    // Build inArguments with field mappings
+// ─── Step Navigation ─────────────────────────────────────────────────
+
+connection.on('gotoStep', function (step) {
+    var stepNum = parseInt((step.key || '').replace('step', ''), 10);
+    if (!isNaN(stepNum)) {
+        currentStep = stepNum;
+        showStep(currentStep);
+
+        // When arriving at step 3, fetch preview records
+        if (currentStep === 3) {
+            fetchPreviewRecords();
+            showJobIdSummary();
+        }
+    }
+});
+
+connection.on('clickedNext', function () {
+    if (currentStep === 1) {
+        submitWebhookForm();   // async – will call nextStep on success
+    } else if (currentStep === 2) {
+        connection.trigger('nextStep');
+    } else if (currentStep === 3) {
+        saveActivity();
+    }
+});
+
+connection.on('clickedBack', function () {
+    connection.trigger('prevStep');
+});
+
+// ─── UI Helpers ──────────────────────────────────────────────────────
+
+function showStep(num) {
+    $('.step').hide();
+    $('#step' + num).show();
+}
+
+// ─── Screen 1  – Webhook form submit ────────────────────────────────
+
+function submitWebhookForm() {
+    var formData = {
+        firstname : ($('#firstname').val() || '').trim(),
+        lastname  : ($('#lastname').val()  || '').trim(),
+        email     : ($('#email').val()     || '').trim(),
+        phone     : ($('#phone').val()     || '').trim(),
+        country   : ($('#country').val()   || '').trim()
+    };
+
+    // Basic validation
+    if (!formData.email) {
+        $('#webhookStatus').html('<span style="color:#c23934;">Email is required.</span>');
+        return;
+    }
+
+    $('#webhookStatus').html('<span style="color:#888;">Submitting to webhook…</span>');
+
+    $.ajax({
+        url: '/webhook/submit',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(formData),
+        success: function (res) {
+            if (res.success) {
+                webhookJobId = res.jobId;
+                $('#webhookStatus').html(
+                    '<span style="color:#2e844a;">&#10003; Submitted! Job ID: <strong>' +
+                    webhookJobId + '</strong></span>'
+                );
+                // Brief pause so the user sees the confirmation
+                setTimeout(function () {
+                    connection.trigger('nextStep');
+                }, 800);
+            } else {
+                $('#webhookStatus').html(
+                    '<span style="color:#c23934;">Error: ' +
+                    (res.error || 'Unknown error') + '</span>'
+                );
+            }
+        },
+        error: function () {
+            $('#webhookStatus').html(
+                '<span style="color:#c23934;">Request failed. Ensure the server is running and SFMC credentials are configured.</span>'
+            );
+        }
+    });
+}
+
+// ─── Screen 2  – Entry DE field names ───────────────────────────────
+
+function populateEntryDeFields(schemaArr) {
+    var $tbody = $('#entryDeFieldsTable tbody');
+    $tbody.empty();
+
+    if (!schemaArr || schemaArr.length === 0) {
+        $tbody.append('<tr><td colspan="4" class="empty-msg">No fields found in Entry DE.</td></tr>');
+        return;
+    }
+
+    schemaArr.forEach(function (field, idx) {
+        if (!field || !field.key) return;
+        var parts     = field.key.split('.');
+        var fieldName = parts[parts.length - 1];
+        var fieldType = field.type || 'Text';
+
+        $tbody.append(
+            '<tr>' +
+                '<td>' + (idx + 1)  + '</td>' +
+                '<td>' + fieldName  + '</td>' +
+                '<td>' + fieldType  + '</td>' +
+                '<td style="font-size:11px;color:#666;">' + field.key + '</td>' +
+            '</tr>'
+        );
+    });
+
+    if (entryDeKey) {
+        $('#entryDeKeyDisplay').text(entryDeKey);
+    }
+}
+
+// ─── Screen 3  – Preview top 2 records ───────────────────────────────
+
+function fetchPreviewRecords() {
+    if (!entryDeKey) {
+        $('#previewStatus').html(
+            '<span style="color:#b26500;">No Entry DE key detected from the journey schema.</span>'
+        );
+        return;
+    }
+
+    $('#previewStatus').html('<span style="color:#888;">Fetching top 2 records from <strong>' + entryDeKey + '</strong>…</span>');
+
+    $.ajax({
+        url: '/de/records/' + encodeURIComponent(entryDeKey),
+        method: 'GET',
+        success: function (res) {
+            if (res.success && res.records && res.records.length > 0) {
+                renderPreviewTable(res.records);
+                $('#previewStatus').html(
+                    '<span style="color:#2e844a;">Showing top ' + res.records.length + ' record(s) from <strong>' + entryDeKey + '</strong></span>'
+                );
+            } else {
+                $('#previewStatus').html(
+                    '<span style="color:#b26500;">No records found in the Entry DE.</span>'
+                );
+            }
+        },
+        error: function () {
+            $('#previewStatus').html(
+                '<span style="color:#c23934;">Failed to fetch records. Check server / SFMC credentials.</span>'
+            );
+        }
+    });
+}
+
+function renderPreviewTable(records) {
+    if (!records || records.length === 0) return;
+
+    // Collect all unique field names across records
+    var fieldSet = {};
+    records.forEach(function (r) { Object.keys(r).forEach(function (k) { fieldSet[k] = true; }); });
+    var fields = Object.keys(fieldSet);
+
+    var headerHtml = '<thead><tr>';
+    fields.forEach(function (f) { headerHtml += '<th>' + f + '</th>'; });
+    headerHtml += '</tr></thead>';
+
+    var bodyHtml = '<tbody>';
+    records.forEach(function (record) {
+        bodyHtml += '<tr>';
+        fields.forEach(function (f) {
+            bodyHtml += '<td>' + (record[f] !== undefined && record[f] !== null ? record[f] : '') + '</td>';
+        });
+        bodyHtml += '</tr>';
+    });
+    bodyHtml += '</tbody>';
+
+    $('#previewRecordsTable').html(headerHtml + bodyHtml);
+}
+
+function showJobIdSummary() {
+    if (webhookJobId) {
+        $('#jobIdSummary').html(
+            '<strong>Webhook Job ID:</strong> ' + webhookJobId
+        );
+    }
+}
+
+// ─── Save Activity (final step) ─────────────────────────────────────
+
+function saveActivity() {
+    payload.arguments           = payload.arguments           || {};
+    payload.arguments.execute   = payload.arguments.execute   || {};
+    payload.metaData            = payload.metaData            || {};
+
+    // Map every Entry DE field as an inArgument using handlebars syntax
+    var fieldMappings = {};
+    (schema || []).forEach(function (field) {
+        if (!field || !field.key) return;
+        var parts     = field.key.split('.');
+        var fieldName = parts[parts.length - 1];
+        fieldMappings[fieldName] = '{{' + field.key + '}}';
+    });
+
     payload.arguments.execute.inArguments = [{
-        destinationDE: destDE || null,
-        upsertKey: upsertKeyName || null,
-        fieldMappings: selectedFields
+        entryDeKey    : entryDeKey,
+        webhookJobId  : webhookJobId,
+        fieldMappings : fieldMappings
     }];
-    
+
     payload.metaData.isConfigured = true;
     connection.trigger('updateActivity', payload);
 }
 
+// ─── Hydrate from previously saved payload ──────────────────────────
+
 function hydrateFromExistingPayload() {
-    var existing = payload && payload.arguments && payload.arguments.execute && payload.arguments.execute.inArguments;
-    if (!existing || existing.length === 0) {
-        return;
-    }
+    var existing = payload && payload.arguments && payload.arguments.execute &&
+                   payload.arguments.execute.inArguments;
+    if (!existing || existing.length === 0) return;
 
     var args = existing[0] || {};
-    
-    // Restore destination DE
-    if (args.destinationDE) {
-        $('#destinationDE').val(args.destinationDE);
-    }
-    
-    // Restore upsert key - need to find the matching schema key
-    if (args.upsertKey && schema.length > 0) {
-        schema.forEach(function(field) {
-            if (!field || !field.key) return;
-            var parts = field.key.split('.');
-            var fieldName = parts[parts.length - 1];
-            if (fieldName === args.upsertKey) {
-                $('#upsertKey').val(field.key);
-            }
-        });
-    }
 
-    // Restore selected fields
-    if (args.fieldMappings && typeof args.fieldMappings === 'object') {
-        $('.field-checkbox').each(function() {
-            var fieldKey = $(this).val();
-            var parts = fieldKey.split('.');
-            var fieldName = parts[parts.length - 1];
-            
-            // Check if this field was previously selected
-            if (args.fieldMappings.hasOwnProperty(fieldName)) {
-                $(this).prop('checked', true);
-            }
-        });
+    if (args.webhookJobId) {
+        webhookJobId = args.webhookJobId;
+        $('#webhookStatus').html(
+            '<span style="color:#2e844a;">Previously submitted. Job ID: <strong>' +
+            webhookJobId + '</strong></span>'
+        );
+    }
+    if (args.entryDeKey) {
+        entryDeKey = args.entryDeKey;
     }
 }
-
-// 5. Connect the Salesforce 'Next' button to your save function
-connection.on('clickedNext', save);

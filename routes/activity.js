@@ -1,5 +1,6 @@
 'use strict';
 const axios = require("axios");
+const crypto = require("crypto");
 
 // Global Variables - Build URLs from environment variables
 const subdomain = process.env.SUBDOMAIN || '';
@@ -164,3 +165,116 @@ exports.getActivityByUUID = async function (req, res) {
 async function saveToDatabase() {
     return;
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  NEW ENDPOINTS – Multi-screen POC
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * POST /webhook/submit
+ * Simulates a CloudPage → JS Code Resource webhook.
+ *   1. Receives form data (firstname, lastname, email, phone, country).
+ *   2. Saves it to a "Webhook Data" DE (env: WEBHOOK_DE_KEY).
+ *   3. Generates a GUID job ID.
+ *   4. Saves the GUID to a "Job Tracking" DE (env: JOB_TRACKING_DE_KEY).
+ *   5. Returns the GUID to the caller.
+ */
+exports.webhookSubmit = async function (req, res) {
+    try {
+        const { firstname, lastname, email, phone, country } = req.body || {};
+
+        if (!email) {
+            return res.status(400).json({ success: false, error: 'Email is required.' });
+        }
+
+        // Generate a unique Job ID (GUID)
+        const jobId = crypto.randomUUID();
+
+        // Attempt to persist via SFMC REST API if credentials are configured
+        const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
+                               (process.env.CLIENT_SECRET || process.env.clientSecret) &&
+                               subdomain;
+
+        if (hasCredentials) {
+            const token = await retrieveToken();
+
+            // 1. Save webhook form data to the Webhook DE
+            const webhookDEKey = process.env.WEBHOOK_DE_KEY || 'WebhookData_DE';
+            await upsertDataExtensionRow(token, webhookDEKey, 'email', {
+                email,
+                firstname: firstname || '',
+                lastname: lastname || '',
+                phone: phone || '',
+                country: country || '',
+                jobId
+            });
+
+            // 2. Save the GUID in the Job Tracking DE
+            const jobTrackingDEKey = process.env.JOB_TRACKING_DE_KEY || 'JobTracking_DE';
+            await upsertDataExtensionRow(token, jobTrackingDEKey, 'jobId', {
+                jobId,
+                email,
+                status: 'submitted',
+                createdDate: new Date().toISOString()
+            });
+
+            console.log(`Webhook data saved. Job ID: ${jobId}`);
+        } else {
+            console.log(`[Mock] No SFMC credentials – skipping DE writes. Generated Job ID: ${jobId}`);
+        }
+
+        return res.status(200).json({ success: true, jobId });
+    } catch (error) {
+        console.error('webhookSubmit error:', error.response ? error.response.data : error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
+
+/**
+ * GET /de/records/:deKey
+ * Returns the top 2 rows from the specified Data Extension.
+ */
+exports.getDeRecords = async function (req, res) {
+    try {
+        const deKey = (req.params.deKey || '').trim();
+        if (!deKey) {
+            return res.status(400).json({ success: false, error: 'Missing DE key.' });
+        }
+
+        const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
+                               (process.env.CLIENT_SECRET || process.env.clientSecret) &&
+                               subdomain;
+
+        if (!hasCredentials) {
+            // Return sample mock data when SFMC is not connected
+            console.log('[Mock] Returning sample records for DE:', deKey);
+            return res.status(200).json({
+                success: true,
+                records: [
+                    { SubscriberKey: 'mock-001', FirstName: 'Jane', LastName: 'Doe', Email: 'jane@example.com' },
+                    { SubscriberKey: 'mock-002', FirstName: 'John', LastName: 'Smith', Email: 'john@example.com' }
+                ]
+            });
+        }
+
+        const token = await retrieveToken();
+        const url = `${restBaseURL}/data/v1/customobjectdata/key/${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
+
+        const response = await axios.get(url, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // Normalise into flat objects: merge keys + values
+        const records = (response.data.items || []).map(function (item) {
+            return Object.assign({}, item.keys || {}, item.values || {});
+        });
+
+        return res.status(200).json({ success: true, records });
+    } catch (error) {
+        console.error('getDeRecords error:', error.response ? error.response.data : error.message);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+};
