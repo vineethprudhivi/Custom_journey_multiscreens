@@ -111,6 +111,52 @@ h3 {
     padding: 20px 10px !important;
 }
 
+/* ========== Step indicator bar ========== */
+.step-indicator {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #d8dde6;
+}
+
+.step-dot {
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #706e6b;
+    background: #ecebea;
+    cursor: default;
+    transition: all 0.2s;
+}
+
+.step-dot.active {
+    color: #fff;
+    background: #0176d3;
+}
+
+.step-dot.completed {
+    color: #2e844a;
+    background: #cdefc4;
+}
+
+/* ========== In-page nav buttons ========== */
+.nav-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.nav-buttons button {
+    min-width: 100px;
+}
+
 /* ========== Misc ========== */
 button {
     background-color: #0176d3;

@@ -1,22 +1,30 @@
 /**
  * Custom Journey Activity – 3-Screen Postmonger Flow
- * Screen 1: Webhook form (firstname, lastname, email, phone, country)
+ * Screen 1: Webhook form (firstname, lastname, email, phone, country) + GUID
  * Screen 2: Display field names from the journey Entry DE
  * Screen 3: Pull top 2 records from the Entry DE for preview / test
+ *
+ * Navigation is handled via in-page buttons (reliable in all JB environments).
+ * Postmonger gotoStep is also handled as a secondary hook.
  */
 
 // ─── Postmonger Session ──────────────────────────────────────────────
-var connection = new Postmonger.Session();
-var payload     = {};
-var schema      = [];
-var currentStep = 1;
+var connection   = new Postmonger.Session();
+var payload      = {};
+var schema       = [];
+var currentStep  = 1;
+var totalSteps   = 3;
 var webhookJobId = null;
-var entryDeKey   = null;   // extracted from schema keys
+var entryDeKey   = null;
+
+// Base URL for API calls (same origin as iframe)
+var BASE_URL = [location.protocol, '//', location.host].join('');
 
 // ─── Bootstrap ───────────────────────────────────────────────────────
 $(window).ready(function () {
     connection.trigger('ready');          // stop JB loading spinner
     connection.trigger('requestSchema');  // ask for Entry DE schema
+    showStep(1);
 });
 
 // ─── Postmonger Events ──────────────────────────────────────────────
@@ -24,11 +32,7 @@ $(window).ready(function () {
 connection.on('initActivity', function (data) {
     if (data) { payload = data; }
     hydrateFromExistingPayload();
-
-    // Show step 1 and request Next button
     showStep(1);
-    connection.trigger('updateButton', { button: 'next', text: 'Next', visible: true, enabled: true });
-    connection.trigger('updateButton', { button: 'back', visible: false });
 });
 
 connection.on('requestedSchema', function (data) {
@@ -47,56 +51,86 @@ connection.on('requestedSchema', function (data) {
         }
     }
 
-    // Pre-populate Screen 2 field table (available even before user reaches it)
+    // Pre-populate Screen 2 field table
     populateEntryDeFields(schema);
 });
 
-// ─── Step Navigation ─────────────────────────────────────────────────
-
+// Also handle JB-level step navigation if steps ARE recognized
 connection.on('gotoStep', function (step) {
     var stepNum = parseInt((step.key || '').replace('step', ''), 10);
     if (!isNaN(stepNum)) {
-        currentStep = stepNum;
-        showStep(currentStep);
-
-        // Update button visibility per step
-        if (currentStep === 1) {
-            connection.trigger('updateButton', { button: 'next', text: 'Next', visible: true, enabled: true });
-            connection.trigger('updateButton', { button: 'back', visible: false });
-        } else if (currentStep === 2) {
-            connection.trigger('updateButton', { button: 'next', text: 'Next', visible: true, enabled: true });
-            connection.trigger('updateButton', { button: 'back', visible: true });
-        } else if (currentStep === 3) {
-            connection.trigger('updateButton', { button: 'next', text: 'Done', visible: true, enabled: true });
-            connection.trigger('updateButton', { button: 'back', visible: true });
-            fetchPreviewRecords();
-            showJobIdSummary();
-        }
+        goToStep(stepNum);
     }
 });
 
+// If JB fires clickedNext (Done button), save the activity
 connection.on('clickedNext', function () {
-    if (currentStep === 1) {
-        submitWebhookForm();   // async – will call nextStep on success
-    } else if (currentStep === 2) {
-        connection.trigger('nextStep');
-    } else if (currentStep === 3) {
-        saveActivity();
-    }
+    saveActivity();
 });
 
 connection.on('clickedBack', function () {
-    connection.trigger('prevStep');
+    if (currentStep > 1) goToStep(currentStep - 1);
 });
 
-// ─── UI Helpers ──────────────────────────────────────────────────────
+// ─── In-Page Navigation (primary) ────────────────────────────────────
 
-function showStep(num) {
-    $('.step').hide();
-    $('#step' + num).show();
+// Called by HTML onclick
+function navigateNext() {
+    if (currentStep === 1) {
+        submitWebhookForm();  // goes to step 2 on success
+    } else if (currentStep === 2) {
+        goToStep(3);
+    } else if (currentStep === 3) {
+        saveActivity();
+    }
 }
 
-// ─── Screen 1  – Webhook form submit ────────────────────────────────
+function navigateBack() {
+    if (currentStep > 1) {
+        goToStep(currentStep - 1);
+    }
+}
+
+// Expose globally for onclick attributes
+window.navigateNext = navigateNext;
+window.navigateBack = navigateBack;
+
+function goToStep(num) {
+    currentStep = num;
+    showStep(num);
+
+    if (num === 3) {
+        fetchPreviewRecords();
+        showJobIdSummary();
+    }
+}
+
+function showStep(num) {
+    // Toggle step panels
+    $('.step').hide();
+    $('#step' + num).show();
+
+    // Update step indicator
+    $('.step-dot').each(function () {
+        var dotStep = parseInt($(this).data('step'), 10);
+        $(this).removeClass('active completed');
+        if (dotStep === num) {
+            $(this).addClass('active');
+        } else if (dotStep < num) {
+            $(this).addClass('completed');
+        }
+    });
+
+    // Toggle in-page buttons
+    $('#btnBack').toggle(num > 1);
+    if (num < totalSteps) {
+        $('#btnNext').text('Next →').show();
+    } else {
+        $('#btnNext').text('Save & Done ✓').show();
+    }
+}
+
+// ─── Screen 1 – Webhook form submit ─────────────────────────────────
 
 function submitWebhookForm() {
     var formData = {
@@ -107,46 +141,51 @@ function submitWebhookForm() {
         country   : ($('#country').val()   || '').trim()
     };
 
-    // Basic validation
     if (!formData.email) {
         $('#webhookStatus').html('<span style="color:#c23934;">Email is required.</span>');
         return;
     }
 
-    $('#webhookStatus').html('<span style="color:#888;">Submitting to webhook…</span>');
+    // Generate GUID client-side (reliable, no server dependency)
+    webhookJobId = UUIDjs.create(4).toString();
 
+    $('#webhookStatus').html('<span style="color:#888;">Submitting…</span>');
+    $('#btnNext').prop('disabled', true);
+
+    // Fire-and-forget POST to server (saves to DEs if SFMC creds are configured)
     $.ajax({
-        url: '/webhook/submit',
+        url: BASE_URL + '/webhook/submit',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify(formData),
+        data: JSON.stringify($.extend({}, formData, { jobId: webhookJobId })),
+        timeout: 8000,
         success: function (res) {
-            if (res.success) {
+            // If server returned its own jobId, prefer it
+            if (res && res.success && res.jobId) {
                 webhookJobId = res.jobId;
-                $('#webhookStatus').html(
-                    '<span style="color:#2e844a;">&#10003; Submitted! Job ID: <strong>' +
-                    webhookJobId + '</strong></span>'
-                );
-                // Brief pause so the user sees the confirmation
-                setTimeout(function () {
-                    connection.trigger('nextStep');
-                }, 800);
-            } else {
-                $('#webhookStatus').html(
-                    '<span style="color:#c23934;">Error: ' +
-                    (res.error || 'Unknown error') + '</span>'
-                );
             }
+            showWebhookSuccess();
         },
         error: function () {
-            $('#webhookStatus').html(
-                '<span style="color:#c23934;">Request failed. Ensure the server is running and SFMC credentials are configured.</span>'
-            );
+            // Server unreachable / creds missing – still proceed with client GUID
+            console.warn('Webhook POST failed – using client-generated GUID');
+            showWebhookSuccess();
         }
     });
 }
 
-// ─── Screen 2  – Entry DE field names ───────────────────────────────
+function showWebhookSuccess() {
+    $('#webhookStatus').html(
+        '<span style="color:#2e844a;">&#10003; Done! Job ID: <strong>' +
+        webhookJobId + '</strong></span>'
+    );
+    $('#btnNext').prop('disabled', false);
+
+    // Move to step 2 after a brief pause
+    setTimeout(function () { goToStep(2); }, 600);
+}
+
+// ─── Screen 2 – Entry DE field names ─────────────────────────────────
 
 function populateEntryDeFields(schemaArr) {
     var $tbody = $('#entryDeFieldsTable tbody');
@@ -178,7 +217,7 @@ function populateEntryDeFields(schemaArr) {
     }
 }
 
-// ─── Screen 3  – Preview top 2 records ───────────────────────────────
+// ─── Screen 3 – Preview top 2 records ────────────────────────────────
 
 function fetchPreviewRecords() {
     if (!entryDeKey) {
@@ -188,16 +227,20 @@ function fetchPreviewRecords() {
         return;
     }
 
-    $('#previewStatus').html('<span style="color:#888;">Fetching top 2 records from <strong>' + entryDeKey + '</strong>…</span>');
+    $('#previewStatus').html(
+        '<span style="color:#888;">Fetching top 2 records from <strong>' + entryDeKey + '</strong>…</span>'
+    );
 
     $.ajax({
-        url: '/de/records/' + encodeURIComponent(entryDeKey),
+        url: BASE_URL + '/de/records/' + encodeURIComponent(entryDeKey),
         method: 'GET',
+        timeout: 10000,
         success: function (res) {
             if (res.success && res.records && res.records.length > 0) {
                 renderPreviewTable(res.records);
                 $('#previewStatus').html(
-                    '<span style="color:#2e844a;">Showing top ' + res.records.length + ' record(s) from <strong>' + entryDeKey + '</strong></span>'
+                    '<span style="color:#2e844a;">Showing top ' + res.records.length +
+                    ' record(s) from <strong>' + entryDeKey + '</strong></span>'
                 );
             } else {
                 $('#previewStatus').html(
@@ -216,9 +259,10 @@ function fetchPreviewRecords() {
 function renderPreviewTable(records) {
     if (!records || records.length === 0) return;
 
-    // Collect all unique field names across records
     var fieldSet = {};
-    records.forEach(function (r) { Object.keys(r).forEach(function (k) { fieldSet[k] = true; }); });
+    records.forEach(function (r) {
+        Object.keys(r).forEach(function (k) { fieldSet[k] = true; });
+    });
     var fields = Object.keys(fieldSet);
 
     var headerHtml = '<thead><tr>';
@@ -229,7 +273,7 @@ function renderPreviewTable(records) {
     records.forEach(function (record) {
         bodyHtml += '<tr>';
         fields.forEach(function (f) {
-            bodyHtml += '<td>' + (record[f] !== undefined && record[f] !== null ? record[f] : '') + '</td>';
+            bodyHtml += '<td>' + (record[f] != null ? record[f] : '') + '</td>';
         });
         bodyHtml += '</tr>';
     });
@@ -240,18 +284,16 @@ function renderPreviewTable(records) {
 
 function showJobIdSummary() {
     if (webhookJobId) {
-        $('#jobIdSummary').html(
-            '<strong>Webhook Job ID:</strong> ' + webhookJobId
-        );
+        $('#jobIdSummary').html('<strong>Webhook Job ID:</strong> ' + webhookJobId);
     }
 }
 
-// ─── Save Activity (final step) ─────────────────────────────────────
+// ─── Save Activity (final step → Postmonger) ────────────────────────
 
 function saveActivity() {
-    payload.arguments           = payload.arguments           || {};
-    payload.arguments.execute   = payload.arguments.execute   || {};
-    payload.metaData            = payload.metaData            || {};
+    payload.arguments         = payload.arguments         || {};
+    payload.arguments.execute = payload.arguments.execute || {};
+    payload.metaData          = payload.metaData          || {};
 
     // Map every Entry DE field as an inArgument using handlebars syntax
     var fieldMappings = {};
@@ -272,7 +314,7 @@ function saveActivity() {
     connection.trigger('updateActivity', payload);
 }
 
-// ─── Hydrate from previously saved payload ──────────────────────────
+// ─── Hydrate from previously saved payload ───────────────────────────
 
 function hydrateFromExistingPayload() {
     var existing = payload && payload.arguments && payload.arguments.execute &&

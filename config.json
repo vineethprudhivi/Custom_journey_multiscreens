@@ -36,11 +36,6 @@
             "height": 650,
             "width": 750
         },
-        "configModal": {
-            "height": 650,
-            "width": 750,
-            "fullscreen": false
-        },
         "steps": [
             {
                 "label": "Webhook Form",

@@ -6,8 +6,16 @@
     <link rel="stylesheet" href="css/styles.css">
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script type="text/javascript" src="js/postmonger.js"></script>
+    <script type="text/javascript" src="js/uuid.js"></script>
 </head>
 <body>
+
+    <!-- Step indicator -->
+    <div id="stepIndicator" class="step-indicator">
+        <span class="step-dot active" data-step="1">1. Webhook Form</span>
+        <span class="step-dot" data-step="2">2. Entry DE Fields</span>
+        <span class="step-dot" data-step="3">3. Preview &amp; Test</span>
+    </div>
 
     <!-- ===================== STEP 1: Webhook Form ===================== -->
     <div id="step1" class="step">
@@ -80,6 +88,12 @@
         </div>
 
         <div id="jobIdSummary" class="status-area" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- ===================== In-page navigation buttons ===================== -->
+    <div class="nav-buttons">
+        <button id="btnBack" style="display:none;" onclick="navigateBack()">&#8592; Back</button>
+        <button id="btnNext" onclick="navigateNext()">Next &#8594;</button>
     </div>
 
     <!-- Main UI logic -->
