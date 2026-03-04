@@ -232,11 +232,21 @@ exports.webhookSubmit = async function (req, res) {
 
                 console.log('CloudPage parsed response:', JSON.stringify(parsed));
 
+                // ── Log detailed CloudPage save statuses ──
+                if (parsed && parsed.saveStatus) {
+                    console.log('=== CloudPage DE Save Results ===');
+                    console.log('  Webhook DE status    :', parsed.saveStatus.webhookDE);
+                    console.log('  Job Tracking DE status:', parsed.saveStatus.jobTrackingDE);
+                    console.log('  JobID                :', parsed.jobId);
+                    console.log('=================================');
+                }
+
                 // Forward CloudPage response directly to client
                 if (parsed && parsed.success && parsed.jobId) {
                     return res.status(200).json(parsed);
                 } else if (parsed) {
                     // CloudPage returned a response but missing jobId or not success
+                    console.warn('CloudPage response missing jobId or not success:', JSON.stringify(parsed));
                     return res.status(200).json(parsed);
                 } else {
                     return res.status(500).json({ success: false, error: 'CloudPage returned unparseable response.' });
