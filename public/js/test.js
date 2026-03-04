@@ -20,6 +20,10 @@ var entryDeKey   = null;
 // Base URL for API calls (same origin as iframe)
 var BASE_URL = [location.protocol, '//', location.host].join('');
 
+// CloudPage JSON Code Resource URL for webhook (generates GUID server-side in SFMC)
+// After publishing your CloudPage, paste the URL here:
+var CLOUDPAGE_WEBHOOK_URL = 'https://mc4by0xw84s11pznjgq1c45n7qr0.pub.sfmc-content.com/cr4i4iowdxe'; // e.g. 'https://cloud.s50.exacttarget.com/xxx'
+
 // ─── Bootstrap ───────────────────────────────────────────────────────
 $(window).ready(function () {
     connection.trigger('ready');          // stop JB loading spinner
