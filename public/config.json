@@ -30,7 +30,7 @@
         }
     },
     "configurationArguments": {
-        "applicationExtensionKey": "b43b4e9f-6ebd-4f4c-9649-38bb36b7124b",
+        "applicationExtensionKey": "3ffec9d2-967a-4112-afe2-a17a085a6f07",
         "save": {
             "url": "https://custom-journey-multiscreens.vercel.app/save",
             "verb": "POST",
