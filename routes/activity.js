@@ -181,14 +181,14 @@ async function saveToDatabase() {
  */
 exports.webhookSubmit = async function (req, res) {
     try {
-        const { firstname, lastname, email, phone, country } = req.body || {};
+        const { firstname, lastname, email, phone, country, jobId: clientJobId } = req.body || {};
 
         if (!email) {
             return res.status(400).json({ success: false, error: 'Email is required.' });
         }
 
-        // Generate a unique Job ID (GUID)
-        const jobId = crypto.randomUUID();
+        // Use client-provided GUID if available, otherwise generate server-side
+        const jobId = clientJobId || crypto.randomUUID();
 
         // Attempt to persist via SFMC REST API if credentials are configured
         const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
@@ -200,25 +200,34 @@ exports.webhookSubmit = async function (req, res) {
 
             // 1. Save webhook form data to the Webhook DE
             const webhookDEKey = process.env.WEBHOOK_DE_KEY || 'WebhookData_DE';
-            await upsertDataExtensionRow(token, webhookDEKey, 'email', {
-                email,
-                firstname: firstname || '',
-                lastname: lastname || '',
-                phone: phone || '',
-                country: country || '',
-                jobId
-            });
+            try {
+                await upsertDataExtensionRow(token, webhookDEKey, 'email', {
+                    email,
+                    firstname: firstname || '',
+                    lastname: lastname || '',
+                    phone: phone || '',
+                    country: country || '',
+                    jobId
+                });
+                console.log(`Webhook form data saved to DE '${webhookDEKey}' for ${email}`);
+            } catch (err) {
+                console.error('Failed to save webhook form data:', err.response ? err.response.data : err.message);
+            }
 
-            // 2. Save the GUID in the Job Tracking DE
+            // 2. Save the GUID in the Job Tracking DE (independent try/catch)
             const jobTrackingDEKey = process.env.JOB_TRACKING_DE_KEY || 'JobTracking_DE';
-            await upsertDataExtensionRow(token, jobTrackingDEKey, 'jobId', {
-                jobId,
-                email,
-                status: 'submitted',
-                createdDate: new Date().toISOString()
-            });
-
-            console.log(`Webhook data saved. Job ID: ${jobId}`);
+            try {
+                await upsertDataExtensionRow(token, jobTrackingDEKey, 'jobId', {
+                    jobId,
+                    email,
+                    status: 'submitted',
+                    createdDate: new Date().toISOString()
+                });
+                console.log(`Job tracking saved to DE '${jobTrackingDEKey}' with jobId=${jobId}`);
+            } catch (err) {
+                console.error(`Failed to save to Job Tracking DE '${jobTrackingDEKey}':`, err.response ? JSON.stringify(err.response.data) : err.message);
+                console.error('Make sure the DE exists with fields: jobId (PK, Text 50), email (Text 254), status (Text 50), createdDate (Text 50)');
+            }
         } else {
             console.log(`[Mock] No SFMC credentials – skipping DE writes. Generated Job ID: ${jobId}`);
         }
@@ -258,19 +267,38 @@ exports.getDeRecords = async function (req, res) {
         }
 
         const token = await retrieveToken();
-        const url = `${restBaseURL}/data/v1/customobjectdata/key/${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
 
-        const response = await axios.get(url, {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        // Use the SFMC REST API to retrieve rows from the DE
+        // Try the /rowset endpoint first (works for most DEs)
+        const url = `${restBaseURL}/hub/v1/dataevents/key:${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
+        console.log('Fetching DE records from:', url);
 
-        // Normalise into flat objects: merge keys + values
-        const records = (response.data.items || []).map(function (item) {
-            return Object.assign({}, item.keys || {}, item.values || {});
-        });
+        let records = [];
+        try {
+            const response = await axios.get(url, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            // The rowset response returns an array of { keys: {}, values: {} }
+            records = (response.data || []).map(function (item) {
+                return Object.assign({}, item.keys || {}, item.values || {});
+            });
+        } catch (err1) {
+            console.log('Rowset endpoint failed, trying /data/v1/ endpoint...');
+            // Fallback: /data/v1/customobjectdata/key/{key}/rowset
+            const url2 = `${restBaseURL}/data/v1/customobjectdata/key/${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
+            const response2 = await axios.get(url2, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            records = (response2.data.items || []).map(function (item) {
+                return Object.assign({}, item.keys || {}, item.values || {});
+            });
+        }
 
         return res.status(200).json({ success: true, records });
     } catch (error) {
