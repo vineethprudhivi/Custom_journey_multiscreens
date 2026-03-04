@@ -1,0 +1,79 @@
+<script runat="server">
+    Platform.Load("core", "1.1.5");
+
+    var WEBHOOK_DE_KEY      = "29F462C3-7335-45E7-9012-01FFD1823A38";
+    var JOB_TRACKING_DE_KEY = "4D004F25-6985-494C-90F2-3DACD9C73B9D";
+
+    Platform.Response.SetResponseHeader("Content-Type", "application/json");
+    Platform.Response.SetResponseHeader("Access-Control-Allow-Origin", "*");
+    Platform.Response.SetResponseHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    Platform.Response.SetResponseHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    try {
+        var postBody = Platform.Request.GetPostData("utf-8");
+
+        if (!postBody) {
+            Write(Stringify({ success: false, error: "No POST data received." }));
+        } else {
+            var data = Platform.Function.ParseJSON(postBody);
+
+            var firstname = data.firstname || "";
+            var lastname  = data.lastname  || "";
+            var email     = data.email     || "";
+            var phone     = data.phone     || "";
+            var country   = data.country   || "";
+
+            if (!email) {
+                Write(Stringify({ success: false, error: "Email is required." }));
+            } else {
+                var jobId = Platform.Function.GUID();
+                var webhookStatus = "ok";
+                var trackingStatus = "ok";
+
+                // ─── 1. Save form data to Webhook DE ─────────────
+                try {
+                    var webhookDE = DataExtension.Init(WEBHOOK_DE_KEY);
+                    var webhookResult = webhookDE.Rows.Add({
+                        email:     email,
+                        firstname: firstname,
+                        lastname:  lastname,
+                        phone:     phone,
+                        country:   country,
+                        jobId:     jobId
+                    });
+                    if (webhookResult <= 0) { webhookStatus = "failed (0 rows)"; }
+                } catch (we) {
+                    webhookStatus = "error: " + Stringify(we.message || we);
+                }
+
+                // ─── 2. Save JobID to Job Tracking DE ────────────
+                try {
+                    var jobTrackingDE = DataExtension.Init(JOB_TRACKING_DE_KEY);
+                    var trackingResult = jobTrackingDE.Rows.Add({
+                        jobId:       jobId,
+                        email:       email,
+                        status:      "submitted",
+                        createdDate: Now()
+                    });
+                    if (trackingResult <= 0) { trackingStatus = "failed (0 rows)"; }
+                } catch (te) {
+                    trackingStatus = "error: " + Stringify(te.message || te);
+                }
+
+                Write(Stringify({
+                    success: true,
+                    jobId: jobId,
+                    saveStatus: {
+                        webhookDE:     webhookStatus,
+                        jobTrackingDE: trackingStatus
+                    }
+                }));
+            }
+        }
+    } catch (e) {
+        Write(Stringify({
+            success: false,
+            error: "SSJS Error: " + Stringify(e.message || e)
+        }));
+    }
+</script>
