@@ -10,7 +10,7 @@
     "type": "REST",
     "lang": {
         "en-US": {
-            "name": "Vineeth_JourneyCA",
+            "name": "Vineeth_multiscreen_custom_activity",
             "description": "Multi-screen custom activity: Webhook form, DE fields, and record preview.",
             "step1Label": "Webhook Form",
             "step2Label": "Entry DE Fields",
