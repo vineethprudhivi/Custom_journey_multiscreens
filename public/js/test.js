@@ -164,25 +164,38 @@ function submitWebhookForm() {
             if (res && res.success && res.jobId) {
                 webhookJobId = res.jobId;
             }
-            showWebhookSuccess();
+            showWebhookSuccess(res);
         },
         error: function () {
             // Server unreachable / creds missing – still proceed with client GUID
             console.warn('Webhook POST failed – using client-generated GUID');
-            showWebhookSuccess();
+            showWebhookSuccess(null);
         }
     });
 }
 
-function showWebhookSuccess() {
-    $('#webhookStatus').html(
-        '<span style="color:#2e844a;">&#10003; Done! Job ID: <strong>' +
-        webhookJobId + '</strong></span>'
-    );
+function showWebhookSuccess(response) {
+    var html = '<span style="color:#2e844a;">&#10003; Done! Job ID: <strong>' +
+               webhookJobId + '</strong></span>';
+
+    // Show save status if returned by server
+    if (response && response.saveStatus) {
+        var ss = response.saveStatus;
+        html += '<br/><small style="color:#666;">';
+        html += 'Webhook DE: ' + (ss.webhookDE === 'ok'
+            ? '<span style="color:#2e844a;">&#10003; saved</span>'
+            : '<span style="color:#c23934;">&#10007; ' + ss.webhookDE + '</span>');
+        html += ' &nbsp;|&nbsp; Job Tracking DE: ' + (ss.jobTrackingDE === 'ok'
+            ? '<span style="color:#2e844a;">&#10003; saved</span>'
+            : '<span style="color:#c23934;">&#10007; ' + ss.jobTrackingDE + '</span>');
+        html += '</small>';
+    }
+
+    $('#webhookStatus').html(html);
     $('#btnNext').prop('disabled', false);
 
     // Move to step 2 after a brief pause
-    setTimeout(function () { goToStep(2); }, 600);
+    setTimeout(function () { goToStep(2); }, 1200);
 }
 
 // ─── Screen 2 – Entry DE field names ─────────────────────────────────
