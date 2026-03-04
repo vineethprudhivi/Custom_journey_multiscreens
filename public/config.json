@@ -62,7 +62,21 @@
             "height": 650,
             "width": 750,
             "fullscreen": false
-        }
+        },
+        "steps": [
+            {
+                "label": "Webhook Form",
+                "key": "step1"
+            },
+            {
+                "label": "Entry DE Fields",
+                "key": "step2"
+            },
+            {
+                "label": "Preview & Test",
+                "key": "step3"
+            }
+        ]
     },
     "schema": {
         "arguments": {

@@ -24,6 +24,11 @@ $(window).ready(function () {
 connection.on('initActivity', function (data) {
     if (data) { payload = data; }
     hydrateFromExistingPayload();
+
+    // Show step 1 and request Next button
+    showStep(1);
+    connection.trigger('updateButton', { button: 'next', text: 'Next', visible: true, enabled: true });
+    connection.trigger('updateButton', { button: 'back', visible: false });
 });
 
 connection.on('requestedSchema', function (data) {
@@ -54,8 +59,16 @@ connection.on('gotoStep', function (step) {
         currentStep = stepNum;
         showStep(currentStep);
 
-        // When arriving at step 3, fetch preview records
-        if (currentStep === 3) {
+        // Update button visibility per step
+        if (currentStep === 1) {
+            connection.trigger('updateButton', { button: 'next', text: 'Next', visible: true, enabled: true });
+            connection.trigger('updateButton', { button: 'back', visible: false });
+        } else if (currentStep === 2) {
+            connection.trigger('updateButton', { button: 'next', text: 'Next', visible: true, enabled: true });
+            connection.trigger('updateButton', { button: 'back', visible: true });
+        } else if (currentStep === 3) {
+            connection.trigger('updateButton', { button: 'next', text: 'Done', visible: true, enabled: true });
+            connection.trigger('updateButton', { button: 'back', visible: true });
             fetchPreviewRecords();
             showJobIdSummary();
         }
