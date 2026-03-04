@@ -228,19 +228,19 @@ function fetchPreviewRecords() {
     }
 
     $('#previewStatus').html(
-        '<span style="color:#888;">Fetching top 2 records from <strong>' + entryDeKey + '</strong>…</span>'
+        '<span style="color:#888;">Resolving Entry DE and fetching top 2 records…</span>'
     );
 
     $.ajax({
-        url: BASE_URL + '/de/records/' + encodeURIComponent(entryDeKey),
+        url: BASE_URL + '/de/entry-records?eventDefKey=' + encodeURIComponent(entryDeKey),
         method: 'GET',
-        timeout: 10000,
+        timeout: 15000,
         success: function (res) {
             if (res.success && res.records && res.records.length > 0) {
                 renderPreviewTable(res.records);
                 $('#previewStatus').html(
                     '<span style="color:#2e844a;">Showing top ' + res.records.length +
-                    ' record(s) from <strong>' + entryDeKey + '</strong></span>'
+                    ' record(s) from the Entry DE</span>'
                 );
             } else if (res.error) {
                 $('#previewStatus').html(

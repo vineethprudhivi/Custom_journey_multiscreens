@@ -240,6 +240,90 @@ exports.webhookSubmit = async function (req, res) {
 };
 
 /**
+ * GET /de/entry-records?eventDefKey=DEAudience-xxxx
+ * Automatically resolves the journey Event Definition Key to the actual DE,
+ * then returns the top 2 rows.  No manual env-var configuration needed.
+ *
+ * Flow:
+ *   1. GET /interaction/v1/eventDefinitions/key:{eventDefKey}
+ *      → response contains dataExtensionId (DE ObjectID)
+ *   2. GET /data/v1/customobjectdata/{dataExtensionId}/rowset?$page=1&$pageSize=2
+ *      → returns DE rows
+ */
+exports.getEntryDeRecords = async function (req, res) {
+    try {
+        const eventDefKey = (req.query.eventDefKey || '').trim();
+        if (!eventDefKey) {
+            return res.status(400).json({ success: false, error: 'Missing eventDefKey query parameter.' });
+        }
+
+        console.log('=== getEntryDeRecords called with eventDefKey:', eventDefKey, '===');
+
+        const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
+                               (process.env.CLIENT_SECRET || process.env.clientSecret) &&
+                               subdomain;
+
+        if (!hasCredentials) {
+            console.log('[Mock] No SFMC credentials – returning sample records');
+            return res.status(200).json({
+                success: true,
+                records: [
+                    { SubscriberKey: 'mock-001', FirstName: 'Jane', LastName: 'Doe', Email: 'jane@example.com' },
+                    { SubscriberKey: 'mock-002', FirstName: 'John', LastName: 'Smith', Email: 'john@example.com' }
+                ]
+            });
+        }
+
+        const token = await retrieveToken();
+
+        // Step 1 – Resolve Event Definition Key → dataExtensionId
+        const eventDefUrl = `${restBaseURL}/interaction/v1/eventDefinitions/key:${encodeURIComponent(eventDefKey)}`;
+        console.log('Fetching event definition from:', eventDefUrl);
+
+        const eventDefRes = await axios.get(eventDefUrl, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const dataExtensionId = eventDefRes.data && eventDefRes.data.dataExtensionId;
+        if (!dataExtensionId) {
+            console.error('Event definition response missing dataExtensionId:', JSON.stringify(eventDefRes.data));
+            return res.status(200).json({ success: false, error: 'Could not resolve DE from Event Definition.' });
+        }
+
+        console.log('Resolved dataExtensionId:', dataExtensionId);
+
+        // Step 2 – Fetch top 2 rows using the DE ObjectID (no "key/" prefix)
+        const rowsetUrl = `${restBaseURL}/data/v1/customobjectdata/${encodeURIComponent(dataExtensionId)}/rowset?$page=1&$pageSize=2`;
+        console.log('Fetching DE rows from:', rowsetUrl);
+
+        const rowsetRes = await axios.get(rowsetUrl, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // Normalise items
+        let records = [];
+        if (rowsetRes.data && rowsetRes.data.items) {
+            records = rowsetRes.data.items.map(item => Object.assign({}, item.keys || {}, item.values || {}));
+        } else if (Array.isArray(rowsetRes.data)) {
+            records = rowsetRes.data.map(item => {
+                return (item.keys || item.values) ? Object.assign({}, item.keys || {}, item.values || {}) : item;
+            });
+        }
+
+        console.log('Returning', records.length, 'entry DE records');
+        return res.status(200).json({ success: true, records });
+    } catch (error) {
+        const errData = error.response ? JSON.stringify(error.response.data) : error.message;
+        const errStatus = error.response ? error.response.status : 'N/A';
+        console.error(`getEntryDeRecords error [${errStatus}]:`, errData);
+        return res.status(200).json({ success: false, error: `Entry DE fetch failed (${errStatus}): ${errData}` });
+    }
+};
+
+/**
  * GET /de/records/:deKey
  * Returns the top 2 rows from the specified Data Extension.
  */

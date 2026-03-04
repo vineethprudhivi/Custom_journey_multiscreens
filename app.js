@@ -77,6 +77,7 @@ app.get('/activity/:uuid', activity.getActivityByUUID);
 
 // ── Multi-screen POC routes ──
 app.post('/webhook/submit', activity.webhookSubmit);
+app.get('/de/entry-records', activity.getEntryDeRecords);
 app.get('/de/records/:deKey', activity.getDeRecords);
 
 // Start server locally, or export for Vercel
