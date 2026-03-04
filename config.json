@@ -25,7 +25,7 @@
         }
     },
     "configurationArguments": {
-        "applicationExtensionKey": "af850a11-4c0f-4091-a25e-3e619f27070e",
+        "applicationExtensionKey": "3ffec9d2-967a-4112-afe2-a17a085a6f07",
         "save": { "url": "https://custom-journey-multiscreens.vercel.app/journeybuilder/save", "verb": "POST" },
         "publish": { "url": "https://custom-journey-multiscreens.vercel.app/journeybuilder/publish", "verb": "POST" },
         "validate": { "url": "https://custom-journey-multiscreens.vercel.app/journeybuilder/validate", "verb": "POST" }
