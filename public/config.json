@@ -1,0 +1,68 @@
+{
+    "workflowApiVersion": "1.1",
+    "key": "af850a11-4c0f-4091-a25e-3e619f27070e",
+    "metaData": {
+        "icon": "images/icon.png",
+        "iconSmall": "images/iconSmall.png",
+        "backgroundColor": "#9f8e69",
+        "category": "Custom"
+    },
+    "type": "REST",
+    "lang": {
+        "en-US": {
+            "name": "Vineeth_JourneyCA",
+            "description": "Upserts contact data to destination Data Extension.",
+            "step1Label": "Configure Data Upsert"
+        }
+    },
+    "arguments": {
+        "execute": {
+            "inArguments": [],
+            "url": "https://custom-journey-activity-test.vercel.app/execute",
+            "verb": "POST",
+            "body": "",
+            "header": "",
+            "format": "json",
+            "useJwt": false,
+            "timeout": 10000
+        }
+    },
+    "configurationArguments": {
+        "applicationExtensionKey": "b43b4e9f-6ebd-4f4c-9649-38bb36b7124b",
+        "save": {
+            "url": "https://custom-journey-activity-test.vercel.app/save",
+            "verb": "POST",
+            "useJwt": false
+        },
+        "publish": {
+            "url": "https://custom-journey-activity-test.vercel.app/publish",
+            "verb": "POST",
+            "useJwt": false
+        },
+        "validate": {
+            "url": "https://custom-journey-activity-test.vercel.app/validate",
+            "verb": "POST",
+            "useJwt": false
+        },
+        "stop": {
+            "url": "https://custom-journey-activity-test.vercel.app/stop",
+            "verb": "POST",
+            "useJwt": false
+        }
+    },
+    "userInterfaces": {
+        "configModal": {
+            "height": 600,
+            "width": 700,
+            "fullscreen": false
+        }
+    },
+    "schema": {
+        "arguments": {
+            "execute": {
+                "inArguments": [],
+                "outArguments": []
+            }
+        }
+    }
+}

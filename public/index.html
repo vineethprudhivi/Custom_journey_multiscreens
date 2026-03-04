@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Custom Journey Activity</title>
+    <!-- Include jQuery and Postmonger -->
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script type="text/javascript" src="js/postmonger.js"></script>
+    <style>
+        body {
+            font-family: "Salesforce Sans", Arial, sans-serif;
+            padding: 20px;
+            font-size: 14px;
+        }
+        h3 {
+            margin-top: 0;
+            color: #032d60;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #3e3e3c;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d8dde6;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #1589ee;
+            box-shadow: 0 0 3px rgba(21, 137, 238, 0.5);
+        }
+        #fieldSelection {
+            background-color: #fafaf9;
+        }
+    </style>
+</head>
+<body>
+    <div id="step1" class="step">
+        <h3>Upsert Data to DE</h3>
+        
+        <label><strong>Select Fields to Copy:</strong></label>
+        <div id="fieldSelection" style="max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 15px;">
+            <!-- Checkboxes will be populated here -->
+        </div>
+        
+        <label for="upsertKey">Upsert Key Field (for matching records):</label>
+        <select id="upsertKey" class="form-control" style="margin-bottom: 15px;">
+            <option value="">Select key field</option>
+        </select>
+        
+        <label for="destinationDE">Destination DE External Key:</label>
+        <input type="text" id="destinationDE" class="form-control" placeholder="Enter External Key">
+    </div>
+
+    <!-- Load your custom logic last -->
+    <script type="text/javascript" src="js/test.js"></script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>JOURNEY BUILDER APP TEMPLATE</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie-edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel='stylesheet' href="css/styles.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script type="text/javascript" src="js/require.js"></script>
+    <script src="js/uuid.js"></script>
+    <script type="text/javascript">
+        (function() {
+            var config = {
+                baseUrl: 'js'
+            };
+            var dependencies = [
+                'customActivity'
+            ];
+            require(config, dependencies);
+        })();
+    </script>
+    <style>
+    :root{
+      --bg: #f2f3f5;
+      --card: #ffffff;
+      --navy: #0a3a63;
+      --primary: #0b78c5;
+      --primary-dark: #0a6ab0;
+      --text: #1f2a37;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --shadow: 0 18px 40px rgba(0,0,0,.15);
+      --radius: 18px;
+      --radius-lg: 24px;
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 28px 14px;
+    }
+
+    .wrap{
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .card{
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,.04);
+    }
+
+    .header{
+      background: var(--navy);
+      padding: 44px 44px;
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 28px;
+      align-items: center;
+      min-height: 210px;
+    }
+
+    .icon{
+      width: 92px;
+      height: 92px;
+      border-radius: 14px;
+      background: var(--primary);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 10px 20px rgba(0,0,0,.22);
+    }
+
+    .title{
+      margin: 0 0 10px 0;
+      color: #fff;
+      font-size: clamp(28px, 4.2vw, 52px);
+      line-height: 1.05;
+      letter-spacing: .2px;
+      font-weight: 800;
+    }
+
+    .subtitle{
+      margin: 0;
+      color: rgba(255,255,255,.86);
+      font-size: clamp(16px, 2.2vw, 26px);
+      line-height: 1.25;
+      max-width: 520px;
+      font-weight: 500;
+    }
+
+    .body{
+      padding: 46px 54px 34px;
+      background: #f5f6f8;
+    }
+
+    .field{
+      margin-bottom: 28px;
+    }
+
+    label{
+      display: block;
+      font-size: 28px;
+      font-weight: 750;
+      color: #4b4b4b;
+      margin-bottom: 14px;
+    }
+
+    .req{
+      color: #cc2e2e;
+      margin-left: 6px;
+    }
+
+    input{
+      width: 100%;
+      height: 82px;
+      border-radius: 8px;
+      border: 2px solid #c9c9c9;
+      background: #ffffff;
+      padding: 0 22px;
+      font-size: 30px;
+      outline: none;
+      color: #2b2b2b;
+    }
+
+    input::placeholder{
+      color: #8a8a8a;
+    }
+
+    input:focus{
+      border-color: rgba(11,120,197,.65);
+      box-shadow: 0 0 0 4px rgba(11,120,197,.18);
+    }
+
+    .help{
+      margin-top: 10px;
+      font-size: 26px;
+      color: #7a7a7a;
+    }
+
+    .divider{
+      margin: 38px 0 26px;
+      height: 2px;
+      background: #e0e0e0;
+      border: 0;
+    }
+
+    .actions{
+      display: flex;
+      justify-content: flex-end;
+      gap: 24px;
+      padding: 0 6px 10px;
+    }
+
+    .btn{
+      height: 78px;
+      min-width: 170px;
+      border-radius: 10px;
+      font-size: 32px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+
+    .btn-secondary{
+      background: #fff;
+      color: var(--primary);
+      border-color: #bfbfbf;
+    }
+
+    .btn-secondary:hover{
+      background: #f4f7fb;
+    }
+
+    .btn-primary{
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 10px 18px rgba(11,120,197,.25);
+    }
+
+    .btn-primary:hover{
+      background: var(--primary-dark);
+    }
+
+    /* Mobile tweaks */
+    @media (max-width: 520px){
+      .header{ grid-template-columns: 1fr; padding: 28px 22px; text-align: left; }
+      .body{ padding: 28px 22px; }
+      label{ font-size: 22px; }
+      input{ height: 66px; font-size: 22px; }
+      .help{ font-size: 18px; }
+      .btn{ height: 62px; min-width: 140px; font-size: 22px; }
+      .actions{ justify-content: space-between; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <section class="card" role="region" aria-label="UI Card Configuration">
+      <header class="header">
+        <div class="icon" aria-hidden="true">
+          <!-- Simple envelope icon -->
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9Z" stroke="white" stroke-width="1.8"/>
+            <path d="M5.4 7.2 12 12.1l6.6-4.9" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <div>
+          <h1 class="title">UI Card Configuration</h1>
+          <p class="subtitle">Configure template and segment data<br/>extension</p>
+        </div>
+      </header>
+
+      <div class="body">
+        <div class="field">
+          <label for="templateName">Template Name<span class="req">*</span></label>
+          <input id="templateName" type="text" placeholder="Enter template name" />
+          <div class="help">Enter the exact name of the email template</div>
+        </div>
+
+        <div class="field">
+          <label for="segmentDeName">Segment DE Name<span class="req">*</span></label>
+          <input id="segmentDeName" type="text" placeholder="Enter segment data extension name" />
+          <div class="help">Specify the Data Extension containing your target segment</div>
+        </div>
+
+        <hr class="divider" />
+
+        <div class="actions">
+          <button class="btn btn-secondary" type="button">Cancel</button>
+          <button class="btn btn-primary" type="button">Save</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+
+</html>
