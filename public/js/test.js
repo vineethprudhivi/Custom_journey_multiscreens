@@ -242,15 +242,24 @@ function fetchPreviewRecords() {
                     '<span style="color:#2e844a;">Showing top ' + res.records.length +
                     ' record(s) from <strong>' + entryDeKey + '</strong></span>'
                 );
+            } else if (res.error) {
+                $('#previewStatus').html(
+                    '<span style="color:#c23934;">Server error: ' + res.error + '</span>'
+                );
             } else {
                 $('#previewStatus').html(
                     '<span style="color:#b26500;">No records found in the Entry DE.</span>'
                 );
             }
         },
-        error: function () {
+        error: function (xhr) {
+            var msg = 'Failed to fetch records.';
+            try {
+                var body = JSON.parse(xhr.responseText);
+                if (body.error) msg += ' ' + body.error;
+            } catch(e) {}
             $('#previewStatus').html(
-                '<span style="color:#c23934;">Failed to fetch records. Check server / SFMC credentials.</span>'
+                '<span style="color:#c23934;">' + msg + '</span>'
             );
         }
     });

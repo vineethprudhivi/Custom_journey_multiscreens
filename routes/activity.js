@@ -250,12 +250,13 @@ exports.getDeRecords = async function (req, res) {
             return res.status(400).json({ success: false, error: 'Missing DE key.' });
         }
 
+        console.log('=== getDeRecords called for DE:', deKey, '===');
+
         const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
                                (process.env.CLIENT_SECRET || process.env.clientSecret) &&
                                subdomain;
 
         if (!hasCredentials) {
-            // Return sample mock data when SFMC is not connected
             console.log('[Mock] Returning sample records for DE:', deKey);
             return res.status(200).json({
                 success: true,
@@ -268,41 +269,42 @@ exports.getDeRecords = async function (req, res) {
 
         const token = await retrieveToken();
 
-        // Use the SFMC REST API to retrieve rows from the DE
-        // Try the /rowset endpoint first (works for most DEs)
-        const url = `${restBaseURL}/hub/v1/dataevents/key:${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
+        // SFMC REST: retrieve DE rows via /data/v1/customobjectdata
+        const url = `${restBaseURL}/data/v1/customobjectdata/key/${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
         console.log('Fetching DE records from:', url);
 
+        const response = await axios.get(url, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('DE records response status:', response.status);
+        console.log('DE records response keys:', Object.keys(response.data || {}));
+
+        // Normalise – response.data.items is an array of { keys: {}, values: {} }
         let records = [];
-        try {
-            const response = await axios.get(url, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            // The rowset response returns an array of { keys: {}, values: {} }
-            records = (response.data || []).map(function (item) {
+        if (response.data && response.data.items) {
+            records = response.data.items.map(function (item) {
                 return Object.assign({}, item.keys || {}, item.values || {});
             });
-        } catch (err1) {
-            console.log('Rowset endpoint failed, trying /data/v1/ endpoint...');
-            // Fallback: /data/v1/customobjectdata/key/{key}/rowset
-            const url2 = `${restBaseURL}/data/v1/customobjectdata/key/${encodeURIComponent(deKey)}/rowset?$page=1&$pageSize=2`;
-            const response2 = await axios.get(url2, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+        } else if (Array.isArray(response.data)) {
+            // Some endpoints return a plain array
+            records = response.data.map(function (item) {
+                if (item.keys || item.values) {
+                    return Object.assign({}, item.keys || {}, item.values || {});
                 }
-            });
-            records = (response2.data.items || []).map(function (item) {
-                return Object.assign({}, item.keys || {}, item.values || {});
+                return item;
             });
         }
 
+        console.log('Returning', records.length, 'records');
         return res.status(200).json({ success: true, records });
     } catch (error) {
-        console.error('getDeRecords error:', error.response ? error.response.data : error.message);
-        return res.status(500).json({ success: false, error: error.message });
+        const errData = error.response ? JSON.stringify(error.response.data) : error.message;
+        const errStatus = error.response ? error.response.status : 'N/A';
+        console.error(`getDeRecords error [${errStatus}]:`, errData);
+        return res.status(200).json({ success: false, error: `DE fetch failed (${errStatus}): ${errData}` });
     }
 };
