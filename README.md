@@ -70,12 +70,14 @@ Entry DE:
 Form fields DE: 
 
 <img width="800" height="153" alt="image" src="https://github.com/user-attachments/assets/9de2f8f5-dcb8-49c7-9850-759ea032a32d" />
+
 job tracking DE:
 
-<img width="1228" height="991" alt="image" src="https://github.com/user-attachments/assets/a351aee7-44c5-48d7-9c29-ca65a3c83efb" />
+<img width="800" height="426" alt="image" src="https://github.com/user-attachments/assets/75fb63bf-88df-42bf-8e36-2d43cebc695f" />
+
 cloudpage:
 
-<img width="800" height="426" alt="image" src="https://github.com/user-attachments/assets/75fb63bf-88df-42bf-8e36-2d43cebc695f" />
+<img width="1228" height="991" alt="image" src="https://github.com/user-attachments/assets/a351aee7-44c5-48d7-9c29-ca65a3c83efb" />
 
 
 ## Project Structure
