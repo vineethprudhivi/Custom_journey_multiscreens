@@ -172,11 +172,15 @@ function submitWebhookForm() {
             }
             showWebhookSuccess(res);
         },
-        error: function () {
-            // Last resort – client GUID
-            webhookJobId = UUIDjs.create(4).toString();
-            console.warn('Webhook POST failed – using client-generated GUID');
-            showWebhookSuccess(null);
+        error: function (xhr) {
+            var errMsg = 'Webhook submission failed.';
+            try {
+                var body = JSON.parse(xhr.responseText);
+                if (body.error) errMsg += ' ' + body.error;
+            } catch (e) {}
+            $('#webhookStatus').html('<span style="color:#c23934;">&#10007; ' + errMsg + '</span>');
+            $('#btnNext').prop('disabled', false);
+            console.error('Webhook POST failed:', errMsg);
         }
     });
 }
