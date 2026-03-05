@@ -36,6 +36,8 @@ A proof-of-concept Salesforce Marketing Cloud (SFMC) Journey Builder custom acti
 ```
 
 ---
+Entry DE:
+<img width="1700" height="393" alt="image" src="https://github.com/user-attachments/assets/d254e190-a97d-47f9-8ab2-fdc376064d42" />
 
 ## Screens
 
@@ -47,12 +49,14 @@ A proof-of-concept Salesforce Marketing Cloud (SFMC) Journey Builder custom acti
   - **Webhook DE** — stores the form fields + GUID.
   - **Job Tracking DE** — stores the GUID, email, status, and timestamp.
 - The GUID and per-DE save statuses are returned to the UI.
+<img width="800" height="529" alt="image" src="https://github.com/user-attachments/assets/7a5e3a88-b9c2-4caa-adf3-ef1004876ccb" />
 
 ### Screen 2 — Entry DE Fields
 
 - Automatically displays all **field names** from the journey's Entry Data Extension.
 - Fields are resolved from the Postmonger `requestedSchema` event (format: `Event.<DEKey>.<FieldName>`).
 - Shows field name, type, and full schema key in a table.
+<img width="800" height="519" alt="image" src="https://github.com/user-attachments/assets/508f4e33-60c0-4273-970d-5e38d3fcc276" />
 
 ### Screen 3 — Preview & Submit
 
@@ -60,8 +64,16 @@ A proof-of-concept Salesforce Marketing Cloud (SFMC) Journey Builder custom acti
 - The Entry DE is auto-resolved from the journey's Event Definition Key (no manual configuration needed).
 - Shows the generated **Communication ID (Job ID)** from Screen 1.
 - **Save & Done** button triggers `updateActivity` via Postmonger, persisting `inArguments` (field mappings, Job ID, Entry DE key) for the execute step.
+<img width="800" height="403" alt="image" src="https://github.com/user-attachments/assets/66135ba6-06d6-4c54-8e55-9f2bf5fdcaf1" />
 
 ---
+Form fields DE: 
+<img width="800" height="153" alt="image" src="https://github.com/user-attachments/assets/9de2f8f5-dcb8-49c7-9850-759ea032a32d" />
+job tracking DE:
+<img width="1228" height="991" alt="image" src="https://github.com/user-attachments/assets/a351aee7-44c5-48d7-9c29-ca65a3c83efb" />
+cloudpage:
+<img width="800" height="426" alt="image" src="https://github.com/user-attachments/assets/75fb63bf-88df-42bf-8e36-2d43cebc695f" />
+
 
 ## Project Structure
 
