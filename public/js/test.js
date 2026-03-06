@@ -16,6 +16,7 @@ var currentStep  = 1;
 var totalSteps   = 3;
 var webhookJobId = null;
 var entryDeKey   = null;
+var activityId   = null;
 
 // Base URL for API calls (same origin as iframe)
 var BASE_URL = [location.protocol, '//', location.host].join('');
@@ -31,6 +32,13 @@ $(window).ready(function () {
 
 connection.on('initActivity', function (data) {
     if (data) { payload = data; }
+
+    // Extract activity IDs from the JB payload
+    activityId = payload.id || null;
+    console.log('Activity Instance ID:', activityId);
+    console.log('Definition ID:', payload.definitionId);
+    console.log('Definition Instance ID:', payload.definitionInstanceId);
+
     hydrateFromExistingPayload();
     // Re-request schema after JB is fully initialized (more reliable)
     if (!schema || schema.length === 0) {
@@ -338,6 +346,7 @@ function saveActivity() {
     });
 
     payload.arguments.execute.inArguments = [{
+        activityId    : activityId,
         entryDeKey    : entryDeKey,
         webhookJobId  : webhookJobId,
         fieldMappings : fieldMappings
