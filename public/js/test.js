@@ -39,6 +39,12 @@ connection.on('initActivity', function (data) {
     console.log('Definition ID:', payload.definitionId);
     console.log('Definition Instance ID:', payload.definitionInstanceId);
 
+    // Show activity ID in the UI banner
+    if (activityId) {
+        $('#activityIdDisplay').text(activityId);
+        $('#activityIdBanner').show();
+    }
+
     hydrateFromExistingPayload();
     // Re-request schema after JB is fully initialized (more reliable)
     if (!schema || schema.length === 0) {
