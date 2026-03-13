@@ -76,9 +76,6 @@ app.get('/journeys', activity.getJourneys);
 app.get('/activity/:uuid', activity.getActivityByUUID);
 
 // ── Multi-screen POC routes ──
-app.get('/templates', activity.getTemplates);
-app.post('/configuration', activity.saveConfiguration);
-app.get('/configuration/:communicationId', activity.getConfiguration);
 app.post('/webhook/submit', activity.webhookSubmit);
 app.get('/de/entry-records', activity.getEntryDeRecords);
 app.get('/de/records/:deKey', activity.getDeRecords);
