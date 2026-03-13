@@ -193,3 +193,26 @@ button:hover {
     background-color: #4caf50;
     border-radius: 5px;
 }
+
+/* ========== Metadata table ========== */
+.meta-group-header td {
+    background: #e8edf3;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: #032d60;
+    padding: 6px 8px !important;
+}
+
+.meta-label {
+    font-weight: 600;
+    color: #555;
+    white-space: nowrap;
+}
+
+.meta-value {
+    word-break: break-all;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 11px;
+    color: #333;
+}

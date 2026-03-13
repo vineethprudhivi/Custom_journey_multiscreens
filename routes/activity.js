@@ -418,3 +418,83 @@ exports.getDeRecords = async function (req, res) {
         return res.status(200).json({ success: false, error: `DE fetch failed (${errStatus}): ${errData}` });
     }
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+//  METADATA LOGGING – Upsert all journey/activity IDs into a DE
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * POST /meta/log
+ * Receives all journey metadata from the client and upserts a row into
+ * the metadata tracking DE (external key set via METADATA_DE_KEY env var).
+ *
+ * Expected DE columns:
+ *   LogId (Text 50, Primary Key)
+ *   ActivityInstanceId, ActivityDefinitionId, DefinitionInstanceId,
+ *   JourneyId, JourneyKey, JourneyDefinitionId,
+ *   ActivityName, JourneyName, JourneyDescription,
+ *   EventDefinitionId, EventDefinitionName, DataExtensionId
+ */
+exports.logMetadata = async function (req, res) {
+    try {
+        const meta = req.body || {};
+        const metaDeKey = (process.env.METADATA_DE_KEY || '').trim();
+
+        if (!metaDeKey) {
+            return res.status(400).json({ success: false, error: 'METADATA_DE_KEY environment variable is not set.' });
+        }
+
+        // Generate a unique LogId
+        const logId = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+
+        const row = {
+            LogId                : logId,
+            ActivityInstanceId   : meta.activityInstanceId   || '',
+            ActivityDefinitionId : meta.activityDefinitionId || '',
+            DefinitionInstanceId : meta.definitionInstanceId || '',
+            JourneyId            : meta.journeyId            || '',
+            JourneyKey           : meta.journeyKey           || '',
+            JourneyDefinitionId  : meta.journeyDefinitionId  || '',
+            ActivityName         : meta.activityName         || '',
+            JourneyName          : meta.journeyName          || '',
+            JourneyDescription   : meta.journeyDescription   || '',
+            EventDefinitionId    : meta.eventDefinitionId    || '',
+            EventDefinitionName  : meta.eventDefinitionName  || '',
+            DataExtensionId      : meta.dataExtensionId      || ''
+        };
+
+        console.log('=== logMetadata called ===');
+        console.log('Row:', JSON.stringify(row, null, 2));
+
+        const hasCredentials = (process.env.CLIENT_ID || process.env.clientId) &&
+                               (process.env.CLIENT_SECRET || process.env.clientSecret) &&
+                               subdomain;
+
+        if (!hasCredentials) {
+            console.log('[Mock] No SFMC credentials – returning mock response for metadata log');
+            return res.status(200).json({ success: true, logId, mock: true, row });
+        }
+
+        const token = await retrieveToken();
+        const url = `${restBaseURL}/hub/v1/dataevents/key:${encodeURIComponent(metaDeKey)}/rowset`;
+
+        const rowsetPayload = [{
+            keys: { LogId: logId },
+            values: row
+        }];
+
+        await axios.post(url, rowsetPayload, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('Metadata logged successfully. LogId:', logId);
+        return res.status(200).json({ success: true, logId });
+    } catch (error) {
+        const errData = error.response ? JSON.stringify(error.response.data) : error.message;
+        console.error('logMetadata error:', errData);
+        return res.status(200).json({ success: false, error: 'Metadata log failed: ' + errData });
+    }
+};

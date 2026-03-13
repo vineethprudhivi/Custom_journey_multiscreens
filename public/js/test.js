@@ -18,6 +18,22 @@ var webhookJobId = null;
 var entryDeKey   = null;
 var activityId   = null;
 
+// ─── Journey Metadata Store (for DE logging) ─────────────────────────
+var journeyMeta = {
+    activityInstanceId    : null,
+    activityDefinitionId  : null,
+    definitionInstanceId  : null,
+    journeyId             : null,
+    journeyKey            : null,
+    journeyDefinitionId   : null,
+    activityName          : null,
+    journeyName           : null,
+    journeyDescription    : null,
+    eventDefinitionId     : null,
+    eventDefinitionName   : null,
+    dataExtensionId       : null
+};
+
 // Base URL for API calls (same origin as iframe)
 var BASE_URL = [location.protocol, '//', location.host].join('');
 
@@ -25,6 +41,8 @@ var BASE_URL = [location.protocol, '//', location.host].join('');
 $(window).ready(function () {
     connection.trigger('ready');          // stop JB loading spinner
     connection.trigger('requestSchema');  // ask for Entry DE schema
+    connection.trigger('requestInteraction');              // full journey object
+    connection.trigger('requestTriggerEventDefinition');   // entry event definition
     showStep(1);
 });
 
@@ -39,6 +57,12 @@ connection.on('initActivity', function (data) {
     console.log('Definition ID:', payload.definitionId);
     console.log('Definition Instance ID:', payload.definitionInstanceId);
 
+    // Populate activity-level metadata
+    journeyMeta.activityInstanceId   = payload.id                   || null;
+    journeyMeta.activityDefinitionId = payload.definitionId         || null;
+    journeyMeta.definitionInstanceId = payload.definitionInstanceId || null;
+    journeyMeta.activityName         = payload.name                || null;
+
     // Show activity ID in the UI banner
     if (activityId) {
         $('#activityIdDisplay').text(activityId);
@@ -46,10 +70,13 @@ connection.on('initActivity', function (data) {
     }
 
     hydrateFromExistingPayload();
-    // Re-request schema after JB is fully initialized (more reliable)
+    // Re-request schema & journey data after JB is fully initialized
     if (!schema || schema.length === 0) {
         connection.trigger('requestSchema');
     }
+    connection.trigger('requestInteraction');
+    connection.trigger('requestTriggerEventDefinition');
+    refreshMetadataUI();
     showStep(1);
 });
 
@@ -71,6 +98,32 @@ connection.on('requestedSchema', function (data) {
 
     // Pre-populate Screen 2 field table
     populateEntryDeFields(schema);
+});
+
+// ─── Journey-level metadata (requestedInteraction) ──────────────────
+connection.on('requestedInteraction', function (interaction) {
+    if (!interaction) return;
+    console.log('=== requestedInteraction ===', JSON.stringify(interaction).substring(0, 500));
+
+    journeyMeta.journeyId           = interaction.id             || null;
+    journeyMeta.journeyKey          = interaction.key            || null;
+    journeyMeta.journeyDefinitionId = interaction.definitionId   || null;
+    journeyMeta.journeyName         = interaction.name           || null;
+    journeyMeta.journeyDescription  = interaction.description    || null;
+
+    refreshMetadataUI();
+});
+
+// ─── Event-level metadata (requestedTriggerEventDefinition) ─────────
+connection.on('requestedTriggerEventDefinition', function (eventDef) {
+    if (!eventDef) return;
+    console.log('=== requestedTriggerEventDefinition ===', JSON.stringify(eventDef).substring(0, 500));
+
+    journeyMeta.eventDefinitionId   = eventDef.id                  || null;
+    journeyMeta.eventDefinitionName = eventDef.name                || null;
+    journeyMeta.dataExtensionId     = eventDef.dataExtensionId     || null;
+
+    refreshMetadataUI();
 });
 
 // Also handle JB-level step navigation if steps ARE recognized
@@ -382,3 +435,66 @@ function hydrateFromExistingPayload() {
         entryDeKey = args.entryDeKey;
     }
 }
+
+// ─── Metadata UI + Log to DE ─────────────────────────────────────────
+
+function refreshMetadataUI() {
+    var $tbody = $('#metadataTable tbody');
+    if ($tbody.length === 0) return;
+    $tbody.empty();
+
+    var fields = [
+        ['Activity Instance ID',   journeyMeta.activityInstanceId],
+        ['Activity Definition ID', journeyMeta.activityDefinitionId],
+        ['Definition Instance ID', journeyMeta.definitionInstanceId],
+        ['Journey ID',             journeyMeta.journeyId],
+        ['Journey Key',            journeyMeta.journeyKey],
+        ['Journey Definition ID',  journeyMeta.journeyDefinitionId],
+        ['Activity Name',          journeyMeta.activityName],
+        ['Journey Name',           journeyMeta.journeyName],
+        ['Journey Description',    journeyMeta.journeyDescription],
+        ['Event Definition ID',    journeyMeta.eventDefinitionId],
+        ['Event Definition Name',  journeyMeta.eventDefinitionName],
+        ['Data Extension ID',      journeyMeta.dataExtensionId]
+    ];
+
+    fields.forEach(function (f) {
+        var val = f[1] != null ? f[1] : '<span style="color:#999;">—</span>';
+        $tbody.append('<tr><td class="meta-label">' + f[0] + '</td><td class="meta-value">' + val + '</td></tr>');
+    });
+}
+
+function logMetadataToDe() {
+
+    $('#metaLogStatus').html('<span style="color:#888;">Sending metadata to DE…</span>');
+    $('#btnLogMeta').prop('disabled', true);
+
+    $.ajax({
+        url: BASE_URL + '/meta/log',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(journeyMeta),
+        timeout: 15000,
+        success: function (res) {
+            if (res && res.success) {
+                $('#metaLogStatus').html(
+                    '<span style="color:#2e844a;">&#10003; Metadata logged successfully! Row ID: <strong>' +
+                    (res.logId || '—') + '</strong></span>'
+                );
+            } else {
+                $('#metaLogStatus').html(
+                    '<span style="color:#c23934;">&#10007; ' + (res.error || 'Unknown error') + '</span>'
+                );
+            }
+            $('#btnLogMeta').prop('disabled', false);
+        },
+        error: function (xhr) {
+            var msg = 'Failed to log metadata.';
+            try { var body = JSON.parse(xhr.responseText); if (body.error) msg += ' ' + body.error; } catch(e) {}
+            $('#metaLogStatus').html('<span style="color:#c23934;">&#10007; ' + msg + '</span>');
+            $('#btnLogMeta').prop('disabled', false);
+        }
+    });
+}
+
+window.logMetadataToDe = logMetadataToDe;

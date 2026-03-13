@@ -95,6 +95,30 @@
         <div id="jobIdSummary" class="status-area" style="margin-top:15px;"></div>
     </div>
 
+    <!-- ===================== METADATA PANEL (always visible) ===================== -->
+    <div id="metadataPanel" style="margin:15px 10px;padding:10px;border:1px solid #d0d5dd;border-radius:6px;background:#fafbfc;">
+        <h4 style="margin:0 0 8px;font-size:14px;color:#333;">
+            Journey &amp; Activity Metadata
+            <button id="btnLogMeta" onclick="logMetadataToDe()" style="float:right;font-size:12px;padding:4px 12px;background:#0176d3;color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                Log to DE
+            </button>
+        </h4>
+        <div id="metaLogStatus" class="status-area" style="margin-bottom:8px;"></div>
+        <div class="table-wrap" style="max-height:300px;overflow-y:auto;">
+            <table id="metadataTable" class="data-table" style="font-size:12px;">
+                <thead>
+                    <tr>
+                        <th style="width:40%;">Property</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="2" class="empty-msg">Loading metadata…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- ===================== In-page navigation buttons ===================== -->
     <div class="nav-buttons">
         <button id="btnBack" style="display:none;" onclick="navigateBack()">&#8592; Back</button>
