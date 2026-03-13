@@ -53,15 +53,19 @@ connection.on('initActivity', function (data) {
 
     // Extract activity IDs from the JB payload
     activityId = payload.id || null;
+    console.log('=== FULL PAYLOAD KEYS ===', JSON.stringify(Object.keys(payload)));
+    console.log('=== FULL PAYLOAD ===', JSON.stringify(payload).substring(0, 2000));
     console.log('Activity Instance ID:', activityId);
     console.log('Definition ID:', payload.definitionId);
     console.log('Definition Instance ID:', payload.definitionInstanceId);
+    console.log('payload.name:', payload.name);
+    console.log('payload.key:', payload.key);
 
     // Populate activity-level metadata
     journeyMeta.activityInstanceId   = payload.id                   || null;
     journeyMeta.activityDefinitionId = payload.definitionId         || null;
     journeyMeta.definitionInstanceId = payload.definitionInstanceId || null;
-    journeyMeta.activityName         = payload.name                || null;
+    journeyMeta.activityName         = payload.name                 || null;
 
     // Show activity ID in the UI banner
     if (activityId) {
